@@ -3,16 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Generador de Tarjetas - Tamaño Máximo</title>
+    <title>Max Grid Formatter - Excel a PDF</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Dancing+Script:wght@400..700&family=Lato:wght@300;400;700;900&family=Montserrat:wght@300;400;700;900&family=Oswald:wght@300;400;700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Poppins:wght@300;400;700;900&family=Roboto:wght@300;400;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Montserrat:wght@400;700;900&family=Oswald:wght@400;700&family=Roboto:wght@400;700;900&display=swap" rel="stylesheet">
 
     <style>
         :root {
             --font-family: 'Montserrat', sans-serif;
             --font-weight: 900;
+            --grid-cols: 1;
+            --grid-rows: 1;
         }
 
         body {
@@ -22,78 +24,33 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
 
-        /* Área de previsualización */
         #print-area {
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 30px;
-            padding: 30px;
+            gap: 40px;
+            padding: 40px;
         }
 
-        /* Estructura base de la hoja */
         .page-preview {
             background: white;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
             box-sizing: border-box;
             page-break-after: always;
             break-after: page;
             font-family: var(--font-family);
             font-weight: var(--font-weight);
-            display: flex;
-            padding: 10mm; /* Margen mínimo para que la impresora no corte los bordes */
-            overflow: hidden;
-        }
-
-        /* Tamaños de papel exactos en centímetros */
-        .page-carta {
-            width: 21.59cm;
-            height: 27.94cm;
-        }
-
-        .page-oficio {
-            width: 21.59cm;
-            height: 35.56cm;
-        }
-
-        /* Tarjeta interior para el borde y estructura */
-        .card {
-            border: 8px solid #000;
-            border-radius: 12px;
-            width: 100%;
-            height: 100%;
-            box-sizing: border-box;
+            padding: 10mm; /* Outer margin to prevent printer clipping */
             display: grid;
-            gap: 10px;
-            padding: 10px;
-        }
-
-        /* LAYOUT 1: Estándar Apilado (Todo horizontal) */
-        .layout-stacked {
-            grid-template-rows: 15% 40% 30% 15%;
-            grid-template-columns: 1fr;
-        }
-
-        /* LAYOUT 2: Rotado Máximo (Fecha y hora a un lado) */
-        .layout-rotated {
-            grid-template-rows: 15% 55% 30%;
-            grid-template-columns: 1fr 15%; /* 15% para el panel lateral */
-        }
-        .layout-rotated .cct-container { grid-column: 1 / 3; }
-        .layout-rotated .nombre-container { grid-column: 1 / 2; grid-row: 2 / 3; }
-        .layout-rotated .sede-container { grid-column: 1 / 2; grid-row: 3 / 4; }
-        .layout-rotated .fecha-hora-container { 
-            grid-column: 2 / 3; 
-            grid-row: 2 / 4; 
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            border-top: none;
-            border-left: 5px solid #000;
-            padding-left: 10px;
+            gap: 15px; /* Spacing between grid boxes */
+            grid-template-columns: repeat(var(--grid-cols), 1fr);
+            grid-template-rows: repeat(var(--grid-rows), 1fr);
+            transition: width 0.3s, height 0.3s;
         }
 
         .fit-container {
+            border: 6px solid #111827;
+            border-radius: 12px;
             width: 100%;
             height: 100%;
             display: flex;
@@ -101,33 +58,20 @@
             align-items: center;
             overflow: hidden;
             text-align: center;
+            box-sizing: border-box;
+            padding: 10px;
+            background-color: #ffffff;
         }
 
-        .fit-container.vertical-text {
-            writing-mode: vertical-rl;
-            transform: rotate(180deg); /* Para que se lea de abajo hacia arriba */
-            text-align: center;
-        }
-
-        /* El span interior que se medirá matemáticamente */
         .fit-text {
-            white-space: pre-wrap; /* Permite saltos de línea donde haya espacios */
-            line-height: 0.95; /* Muy pegado para ahorrar espacio vertical */
-            word-break: break-word; /* Evita que palabras súper largas rompan el layout */
+            white-space: pre-wrap;
+            word-break: break-word;
+            line-height: 0.95;
             margin: 0;
             padding: 0;
             display: inline-block;
+            text-transform: uppercase;
         }
-        
-        .no-wrap {
-            white-space: nowrap !important;
-        }
-
-        /* Estética base */
-        .cct-container { border-bottom: 5px solid #000; }
-        .fecha-hora-container { border-top: 5px solid #000; }
-        
-        .layout-rotated .fecha-hora-container { border-top: none; }
 
         @media print {
             body { background: white; }
@@ -143,123 +87,197 @@
             .page-preview:last-child { page-break-after: auto; break-after: auto; }
         }
     </style>
-    <style id="dynamic-print-style">
-        @page { size: letter; margin: 0; }
-    </style>
+    
+    <!-- Dynamic style block for paper sizes and orientation -->
+    <style id="dynamic-print-style"></style>
 </head>
 
 <body class="h-screen flex overflow-hidden">
 
-    <aside class="w-80 bg-white p-5 shadow-2xl z-10 flex flex-col h-full overflow-y-auto border-r border-gray-200 shrink-0">
-        <h1 class="text-xl font-black text-gray-900 mb-4 flex items-center gap-2 uppercase tracking-tighter">
-            MAX FORMATTER 📄
+    <aside class="w-80 bg-white p-6 shadow-2xl z-10 flex flex-col h-full overflow-y-auto border-r border-gray-200 shrink-0">
+        <h1 class="text-2xl font-black text-gray-900 mb-6 flex items-center gap-2 uppercase tracking-tighter leading-tight">
+            MAX GRID<br><span class="text-blue-600 text-lg">FORMATTER</span>
         </h1>
 
         <div class="space-y-4 mb-4 text-sm">
             <div>
-                <label class="block font-bold text-gray-700 mb-1">Diseño / Layout</label>
-                <select id="layout-type" class="w-full border-2 border-gray-900 rounded-md p-2 font-bold bg-gray-50">
-                    <option value="layout-rotated">💥 Panel Rotado (Maximiza Espacio)</option>
-                    <option value="layout-stacked">☰ Apilado Estándar</option>
-                </select>
-            </div>
-
-            <div>
                 <label class="block font-bold text-gray-700 mb-1">Tamaño de Papel</label>
-                <select id="paper-size" class="w-full border border-gray-300 rounded-md p-2">
-                    <option value="carta">Carta (21.59 x 27.94 cm)</option>
-                    <option value="oficio">Oficio (21.59 x 35.56 cm)</option>
+                <select id="paper-size" class="w-full border-2 border-gray-300 rounded-md p-2 bg-gray-50 focus:border-blue-600 outline-none">
+                    <option value="carta">Carta (8.5" x 11")</option>
+                    <option value="oficio">Oficio (8.5" x 14")</option>
+                    <option value="a4">A4 (210 x 297 mm)</option>
+                    <option value="tabloide">Tabloide (11" x 17")</option>
                 </select>
             </div>
 
             <div>
-                <label class="block font-bold text-gray-700 mb-1">Tipo de Letra (Impacto)</label>
-                <select id="font-family" class="w-full border border-gray-300 rounded-md p-2">
-                    <optgroup label="Extremas (Recomendadas)">
-                        <option value="'Anton', sans-serif">Anton (Ultra Condensada)</option>
-                        <option value="'Bebas Neue', sans-serif">Bebas Neue (Alta)</option>
-                        <option value="'Oswald', sans-serif">Oswald</option>
-                    </optgroup>
-                    <optgroup label="Modernas">
-                        <option value="'Montserrat', sans-serif" selected>Montserrat</option>
-                        <option value="'Poppins', sans-serif">Poppins</option>
-                        <option value="'Roboto', sans-serif">Roboto</option>
-                    </optgroup>
-                    <optgroup label="Clásicas">
-                        <option value="'Arial', sans-serif">Arial</option>
-                    </optgroup>
+                <label class="block font-bold text-gray-700 mb-1">Orientación</label>
+                <select id="orientation" class="w-full border-2 border-gray-300 rounded-md p-2 bg-gray-50 focus:border-blue-600 outline-none">
+                    <option value="portrait">Vertical (Portrait)</option>
+                    <option value="landscape">Horizontal (Landscape)</option>
                 </select>
             </div>
 
             <div>
-                <label class="block font-bold text-gray-700 mb-1">Grosor de Letra</label>
-                <select id="font-weight" class="w-full border border-gray-300 rounded-md p-2">
-                    <option value="400">Normal</option>
-                    <option value="700">Negrita (Bold)</option>
-                    <option value="900" selected>Extra Negrita (Black)</option>
+                <label class="block font-bold text-gray-700 mb-1">Tipo de Letra</label>
+                <select id="font-family" class="w-full border-2 border-gray-300 rounded-md p-2 bg-gray-50 focus:border-blue-600 outline-none">
+                    <option value="'Anton', sans-serif">Anton (Ultra Condensada)</option>
+                    <option value="'Bebas Neue', sans-serif">Bebas Neue (Alta)</option>
+                    <option value="'Montserrat', sans-serif" selected>Montserrat</option>
+                    <option value="'Oswald', sans-serif">Oswald</option>
+                    <option value="'Roboto', sans-serif">Roboto</option>
                 </select>
+            </div>
+
+            <div class="flex gap-2">
+                <div class="w-1/2">
+                    <label class="block font-bold text-gray-700 mb-1">Grosor</label>
+                    <select id="font-weight" class="w-full border-2 border-gray-300 rounded-md p-2 bg-gray-50 focus:border-blue-600 outline-none">
+                        <option value="400">Normal</option>
+                        <option value="700">Negrita</option>
+                        <option value="900" selected>Extra Bold</option>
+                    </select>
+                </div>
+                <div class="w-1/2">
+                    <label class="block font-bold text-gray-700 mb-1" title="Celdas por hoja">Valores x Fila</label>
+                    <input type="number" id="values-per-row" min="1" max="20" value="5" class="w-full border-2 border-gray-300 rounded-md p-2 bg-gray-50 focus:border-blue-600 outline-none font-bold text-center">
+                </div>
             </div>
         </div>
 
         <div class="flex-grow flex flex-col mb-4">
             <label class="block font-bold text-gray-700 mb-1 text-sm">
-                📋 Datos de Excel (CCT | Escuela | Sede | Fecha | Hora)
+                📋 Pega aquí los datos (Excel):
             </label>
-            <textarea id="excel-data" class="w-full flex-grow border-2 border-gray-300 rounded-md p-2 text-xs font-mono whitespace-pre focus:border-black resize-none" placeholder="12DPR1234X	Escuela Benito Juárez	Auditorio Municipal	15/10/2026	08:00 AM"></textarea>
+            <textarea id="excel-data" class="w-full flex-grow border-2 border-gray-300 rounded-md p-3 text-xs font-mono whitespace-pre focus:border-blue-600 outline-none resize-none" placeholder="Pega las filas desde Excel aquí...&#10;Dato1&#9;Dato2&#9;Dato3&#9;Dato4&#9;Dato5&#10;Valor1&#9;Valor2&#9;Valor3&#9;Valor4&#9;Valor5"></textarea>
         </div>
 
-        <div class="space-y-2">
-            <button onclick="procesarDatos()" class="w-full bg-black hover:bg-gray-800 text-white font-black py-3 px-4 rounded-md uppercase tracking-widest transition">
+        <div class="space-y-3">
+            <button onclick="procesarDatos()" class="w-full bg-gray-900 hover:bg-gray-800 text-white font-black py-3 px-4 rounded-md uppercase tracking-wider transition shadow-lg">
                 ⚡ Generar Hojas
             </button>
-            <button onclick="window.print()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-3 px-4 rounded-md uppercase tracking-widest transition">
-                🖨️ Imprimir / PDF
+            <button onclick="window.print()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-3 px-4 rounded-md uppercase tracking-wider transition shadow-lg">
+                🖨️ Imprimir
             </button>
         </div>
     </aside>
 
-    <main class="flex-grow bg-gray-300 overflow-y-auto block" id="main-scroll">
+    <main class="flex-grow bg-gray-300 overflow-y-auto block relative" id="main-scroll">
+        <!-- Overlay Message Area -->
+        <div id="ui-message" class="absolute top-4 right-4 bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded shadow-md hidden z-50">
+            <p class="font-bold" id="ui-message-text">Error</p>
+        </div>
+
         <div id="print-area">
-            <div class="page-preview page-carta flex items-center justify-center text-gray-500 font-bold text-2xl text-center">
-                Pega tus datos y presiona<br>"GENERAR HOJAS"
+            <div class="page-preview flex items-center justify-center bg-transparent shadow-none w-full h-full text-gray-500 font-bold text-2xl text-center" style="grid-template-columns: 1fr; grid-template-rows: 1fr;">
+                <div class="opacity-50">
+                    <span class="text-4xl block mb-4">📄</span>
+                    Pega tus datos y presiona<br><span class="text-gray-800">"GENERAR HOJAS"</span>
+                </div>
             </div>
         </div>
     </main>
 
     <script>
-        // Actualizar variables CSS
+        // Data for Standard Paper Sizes (in cm)
+        const paperDimensions = {
+            carta: { w: 21.59, h: 27.94, print: 'letter' },
+            oficio: { w: 21.59, h: 35.56, print: 'legal' },
+            a4: { w: 21.00, h: 29.70, print: 'A4' },
+            tabloide: { w: 27.94, h: 43.18, print: 'ledger' }
+        };
+
+        function showMessage(msg, isError = true) {
+            const msgBox = document.getElementById('ui-message');
+            const msgText = document.getElementById('ui-message-text');
+            msgBox.className = `absolute top-4 right-4 border-l-4 p-4 rounded shadow-md z-50 ${isError ? 'bg-red-100 border-red-500 text-red-700' : 'bg-green-100 border-green-500 text-green-700'}`;
+            msgText.innerText = msg;
+            msgBox.style.display = 'block';
+            setTimeout(() => { msgBox.style.display = 'none'; }, 4000);
+        }
+
+        function getOptimalGrid(numItems, orientation) {
+            let cols = Math.ceil(Math.sqrt(numItems));
+            let rows = Math.ceil(numItems / cols);
+
+            // Adjust grid mapping to better fit the physical orientation of the paper
+            if (orientation === 'landscape' && rows > cols) {
+                [cols, rows] = [rows, cols]; // Swap
+            } else if (orientation === 'portrait' && cols > rows) {
+                // If it's heavily skewed, we might want to swap, but sqrt usually balances well.
+                // For portrait, we generally want more rows than columns.
+                [cols, rows] = [rows, cols]; 
+            }
+            
+            // Re-verify that the swap didn't break capacity
+            if (cols * rows < numItems) {
+                rows = Math.ceil(numItems / cols);
+            }
+
+            return { cols, rows };
+        }
+
         function actualizarEstilos() {
             const fontFamily = document.getElementById('font-family').value;
             const fontWeight = document.getElementById('font-weight').value;
-            document.documentElement.style.setProperty('--font-family', fontFamily);
-            document.documentElement.style.setProperty('--font-weight', fontWeight);
-        }
+            const paperType = document.getElementById('paper-size').value;
+            const orientation = document.getElementById('orientation').value;
+            const root = document.documentElement;
+            
+            root.style.setProperty('--font-family', fontFamily);
+            root.style.setProperty('--font-weight', fontWeight);
 
-        // Actualizar tamaño de papel en CSS para impresión
-        function actualizarReglaImpresion(paperSize) {
-            const stylePrint = document.getElementById('dynamic-print-style');
-            if (paperSize === 'carta') {
-                stylePrint.innerHTML = `@page { size: letter; margin: 0; }`;
-            } else {
-                stylePrint.innerHTML = `@page { size: legal; margin: 0; }`;
+            // Calculate actual width and height based on orientation
+            let widthCm = paperDimensions[paperType].w;
+            let heightCm = paperDimensions[paperType].h;
+
+            if (orientation === 'landscape') {
+                [widthCm, heightCm] = [heightCm, widthCm];
             }
+
+            // Update Dynamic Styles for Print and Preview
+            const stylePrint = document.getElementById('dynamic-print-style');
+            const printSize = paperDimensions[paperType].print;
+            
+            stylePrint.innerHTML = `
+                .page-preview {
+                    width: ${widthCm}cm;
+                    height: ${heightCm}cm;
+                }
+                @page { 
+                    size: ${printSize} ${orientation}; 
+                    margin: 0; 
+                }
+            `;
         }
 
-        // Función principal
         function procesarDatos() {
             actualizarEstilos();
+            
             const textarea = document.getElementById('excel-data').value;
             const printArea = document.getElementById('print-area');
-            const paperSize = document.getElementById('paper-size').value;
-            const layoutType = document.getElementById('layout-type').value;
+            let numValues = parseInt(document.getElementById('values-per-row').value, 10);
+            const orientation = document.getElementById('orientation').value;
 
-            actualizarReglaImpresion(paperSize);
+            if (isNaN(numValues) || numValues < 1) {
+                numValues = 1;
+                document.getElementById('values-per-row').value = 1;
+            }
+            if (numValues > 20) {
+                numValues = 20;
+                document.getElementById('values-per-row').value = 20;
+            }
+
             printArea.innerHTML = '';
 
             if (!textarea.trim()) {
-                printArea.innerHTML = `<div class="page-preview page-${paperSize} flex items-center justify-center text-red-500 text-2xl font-bold text-center">Sin datos.</div>`;
+                showMessage("Por favor, pega los datos de Excel antes de generar.");
                 return;
             }
+
+            const gridSetup = getOptimalGrid(numValues, orientation);
+            document.documentElement.style.setProperty('--grid-cols', gridSetup.cols);
+            document.documentElement.style.setProperty('--grid-rows', gridSetup.rows);
 
             const filas = textarea.split('\n');
             let generadas = 0;
@@ -268,49 +286,31 @@
                 if (fila.trim() === '') return;
 
                 const columnas = fila.split('\t');
-                const cct = columnas[0] ? columnas[0].trim() : '';
-                const nombre = columnas[1] ? columnas[1].trim() : '';
-                const sede = columnas[2] ? columnas[2].trim() : '';
-                const fecha = columnas[3] ? columnas[3].trim() : '';
-                const hora = columnas[4] ? columnas[4].trim() : '';
-
-                // Crear contenedor de la hoja
                 const hoja = document.createElement('div');
-                hoja.className = `page-preview page-${paperSize}`;
+                hoja.className = 'page-preview';
 
-                // Configuración de visualización basada en el Layout elegido
-                const isRotated = layoutType === 'layout-rotated';
-                const fechaHoraClass = isRotated ? 'fit-container vertical-text fecha-hora-container' : 'fit-container fecha-hora-container';
-                const separadorFH = isRotated ? '  |  ' : ' - '; // Separador entre fecha y hora
-
-                hoja.innerHTML = `
-                    <div class="card ${layoutType}">
-                        <div class="fit-container cct-container">
-                            <span class="fit-text no-wrap">CCT: ${cct}</span>
-                        </div>
-                        
-                        <div class="fit-container nombre-container">
-                            <span class="fit-text uppercase">${nombre}</span>
-                        </div>
-                        
-                        <div class="fit-container sede-container">
-                            <span class="fit-text uppercase">${sede}</span>
-                        </div>
-                        
-                        <div class="${fechaHoraClass}">
-                            <span class="fit-text no-wrap">${fecha}${separadorFH}${hora}</span>
-                        </div>
-                    </div>
-                `;
+                // Create exactly 'numValues' boxes per page
+                for (let i = 0; i < numValues; i++) {
+                    const textContent = columnas[i] ? columnas[i].trim() : '';
+                    
+                    const container = document.createElement('div');
+                    container.className = 'fit-container';
+                    
+                    const span = document.createElement('span');
+                    span.className = 'fit-text';
+                    span.innerText = textContent;
+                    
+                    container.appendChild(span);
+                    hoja.appendChild(container);
+                }
 
                 printArea.appendChild(hoja);
                 generadas++;
             });
 
             if (generadas > 0) {
-                // Una vez renderizado el DOM, aplicamos el algoritmo matemático de ajuste
-                // Se usa setTimeout para asegurar que el navegador ya dibujó los contenedores
-                setTimeout(autoFitAllText, 50); 
+                // Ensure elements are rendered before running the sizing algorithm
+                setTimeout(autoFitAllText, 100);
             }
         }
 
@@ -319,55 +319,65 @@
             
             containers.forEach(container => {
                 const textElement = container.querySelector('.fit-text');
-                if (!textElement) return;
+                if (!textElement || !textElement.innerText.trim()) return;
 
-                // Definir los límites de tamaño en píxeles (de 10px a 1000px)
-                let min = 10;
-                let max = 1000;
+                let min = 5;
+                let max = 800; // Large arbitrary max boundary
                 let optimal = min;
 
-                // Restablecer el tamaño inicial para poder medir
+                // Reset size to allow natural measurement
                 textElement.style.fontSize = min + 'px';
 
-                // Búsqueda Binaria
+                // Padding allowances
+                const safePaddingX = 20; // 10px on each side
+                const safePaddingY = 20;
+
                 while (min <= max) {
                     const mid = Math.floor((min + max) / 2);
                     textElement.style.fontSize = mid + 'px';
 
-                    // Obtener dimensiones. Si el contenedor está rotado, la lógica de comprobación sigue 
-                    // siendo validada contra el clientWidth/Height del contenedor padre.
                     const textWidth = textElement.scrollWidth;
                     const textHeight = textElement.scrollHeight;
                     
-                    const containerWidth = container.clientWidth;
-                    const containerHeight = container.clientHeight;
+                    const containerWidth = container.clientWidth - safePaddingX;
+                    const containerHeight = container.clientHeight - safePaddingY;
 
-                    // Dar un pequeño margen de 4 píxeles para evitar roces exactos con los bordes
-                    if (textWidth <= (containerWidth - 4) && textHeight <= (containerHeight - 4)) {
-                        optimal = mid; // Este tamaño cabe, intentemos uno más grande
-                        min = mid + 1;
+                    // Check if text fits inside boundaries
+                    if (textWidth <= containerWidth && textHeight <= containerHeight) {
+                        optimal = mid; 
+                        min = mid + 1; // Try going larger
                     } else {
-                        max = mid - 1; // Este tamaño se desborda, intentemos uno más pequeño
+                        max = mid - 1; // Too big, scale down
                     }
                 }
 
-                // Aplicar el tamaño óptimo encontrado
+                // Apply the calculated optimal size
                 textElement.style.fontSize = optimal + 'px';
             });
         }
 
-        // Recalcular tamaños si el usuario cambia el layout, papel o fuentes directamente
-        document.getElementById('layout-type').addEventListener('change', procesarDatos);
-        document.getElementById('paper-size').addEventListener('change', procesarDatos);
-        document.getElementById('font-family').addEventListener('change', procesarDatos);
-        document.getElementById('font-weight').addEventListener('change', procesarDatos);
-
-        // Recalcular al redimensionar la ventana (ya que la vista previa usa medidas relativas al zoom del navegador)
-        window.addEventListener('resize', () => {
-            if (document.querySelectorAll('.fit-container').length > 0) {
-                autoFitAllText();
-            }
+        const inputsToWatch = ['paper-size', 'orientation', 'font-family', 'font-weight', 'values-per-row'];
+        inputsToWatch.forEach(id => {
+            document.getElementById(id).addEventListener('change', () => {
+                if(document.getElementById('excel-data').value.trim() !== '') {
+                    procesarDatos();
+                }
+            });
         });
+
+        // Re-run fitting if window is resized (affects CSS rendering metrics slightly in preview)
+        let resizeTimer;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => {
+                if (document.querySelectorAll('.fit-container').length > 0) {
+                    autoFitAllText();
+                }
+            }, 250);
+        });
+
+        // Initialize empty state styles
+        actualizarEstilos();
     </script>
 </body>
 </html>
