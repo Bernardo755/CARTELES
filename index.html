@@ -19,13 +19,12 @@
         }
 
         body {
-            background-color: #e5e7eb; /* tailwind gray-200 */
+            background-color: #e5e7eb;
             margin: 0;
             padding: 0;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
 
-        /* Contenedor del área de vista previa */
         #print-area {
             display: flex;
             flex-direction: column;
@@ -34,7 +33,6 @@
             padding: 40px;
         }
 
-        /* Estructura de cada Hoja */
         .page-preview {
             background: white;
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
@@ -43,17 +41,16 @@
             break-after: page;
             font-family: var(--font-family);
             font-weight: var(--font-weight);
-            padding: 10mm; /* Margen para evitar recortes de impresora */
+            padding: 10mm;
             display: grid;
             gap: 15px; 
             grid-template-columns: repeat(var(--grid-cols), 1fr);
             grid-template-rows: repeat(var(--grid-rows), 1fr);
         }
 
-        /* Cajas de valores (Tarjetas individuales) */
         .valor-box {
             position: relative;
-            border: 3px dashed #9ca3af; /* Dashed border to indicate editability */
+            border: 3px dashed #9ca3af;
             border-radius: 8px;
             background-color: #ffffff;
             width: 100%;
@@ -63,22 +60,28 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            
-            /* Habilitar redimensionamiento manual */
             resize: both;
             overflow: hidden;
             box-sizing: border-box;
             padding: 10px;
             transition: border-color 0.2s, box-shadow 0.2s;
+            cursor: pointer; /* Indica que se puede seleccionar */
         }
 
         .valor-box:hover {
-            border-color: #3b82f6; /* Highlight on hover */
+            border-color: #3b82f6;
             box-shadow: inset 0 0 0 1px #3b82f6;
             z-index: 10;
         }
 
-        /* Elemento de texto interno que se ajustará */
+        /* Estilo para las cajas seleccionadas manualmente */
+        .valor-box.selected {
+            border-color: #f59e0b; /* Naranja/Dorado */
+            border-style: solid;
+            box-shadow: inset 0 0 0 2px #f59e0b, 0 0 10px rgba(245, 158, 11, 0.4);
+            z-index: 15;
+        }
+
         .fit-text {
             white-space: pre-wrap;
             word-break: break-word;
@@ -87,10 +90,9 @@
             padding: 0;
             display: inline-block;
             text-align: center;
-            pointer-events: none; /* Let clicks pass through to the box resize handle */
+            pointer-events: none;
         }
 
-        /* Indicador visual adicional en la esquina inferior derecha para resize */
         .valor-box::after {
             content: '◢';
             position: absolute;
@@ -102,12 +104,9 @@
             opacity: 0.7;
         }
         
-        .valor-box:hover::after {
-            color: #3b82f6;
-            opacity: 1;
-        }
+        .valor-box:hover::after { color: #3b82f6; opacity: 1; }
+        .valor-box.selected::after { color: #f59e0b; opacity: 1; }
 
-        /* Mini Toolbar que aparece en hover */
         .hover-toolbar {
             position: absolute;
             top: 5px;
@@ -117,14 +116,14 @@
             opacity: 0;
             visibility: hidden;
             transition: opacity 0.2s;
-            background: rgba(255,255,255,0.9);
+            background: rgba(255,255,255,0.95);
             padding: 4px;
             border-radius: 6px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
             z-index: 20;
         }
 
-        .valor-box:hover .hover-toolbar {
+        .valor-box:hover .hover-toolbar, .valor-box.selected .hover-toolbar {
             opacity: 1;
             visibility: visible;
         }
@@ -150,43 +149,22 @@
             color: #000;
         }
 
-        /* Clases auxiliares para maximizar con el toolbar */
         .col-span-full { grid-column: 1 / -1 !important; }
         .row-span-full { grid-row: 1 / -1 !important; }
 
-        /* Reglas de impresión: Ocultar UI y dejar solo las tarjetas */
         @media print {
             body { background: white; }
             aside { display: none !important; }
-            main { 
-                width: 100% !important; 
-                padding: 0 !important; 
-                overflow: visible !important;
-                display: block !important;
-            }
+            main { width: 100% !important; padding: 0 !important; overflow: visible !important; display: block !important; }
             #print-area { gap: 0; padding: 0; display: block; }
-            
-            .page-preview { 
-                box-shadow: none; 
-                margin: 0; 
-                border: none; 
-            }
-            .page-preview:last-child { 
-                page-break-after: auto; 
-                break-after: auto; 
-            }
-            
-            /* Limpiar estilos de edición al imprimir */
-            .valor-box { 
-                border: 2px solid #000; /* Borde sólido para impresión en vez de dashed */
-                resize: none; 
-            }
+            .page-preview { box-shadow: none; margin: 0; border: none; }
+            .page-preview:last-child { page-break-after: auto; break-after: auto; }
+            .valor-box { border: 2px solid #000 !important; resize: none; box-shadow: none !important; }
             .valor-box::after { display: none !important; }
             .hover-toolbar { display: none !important; }
         }
     </style>
     
-    <!-- Contenedor dinámico de CSS para el tamaño de la hoja -->
     <style id="dynamic-print-style"></style>
 </head>
 
@@ -196,6 +174,17 @@
         <h1 class="text-xl font-black text-gray-900 mb-6 flex items-center gap-2 uppercase tracking-tighter leading-tight border-b pb-4">
             Flashcards<br><span class="text-blue-600 text-lg">Generator</span>
         </h1>
+
+        <!-- NUEVA SECCIÓN: Controles Manuales de Letra -->
+        <div class="mb-5 p-3 bg-gray-50 border border-gray-200 rounded-lg shadow-sm">
+            <label class="block font-bold text-gray-800 mb-1">🔠 Ajuste Manual de Letra</label>
+            <p class="text-xs text-gray-500 mb-3 leading-tight">Clic en las cajas para seleccionar. Si no seleccionas ninguna, aplicará a todas.</p>
+            <div class="flex gap-2">
+                <button onclick="adjustFontSize(0.85)" class="flex-1 bg-white hover:bg-gray-100 text-gray-800 font-bold py-2 rounded shadow-sm border border-gray-300 transition">A-</button>
+                <button onclick="adjustFontSize(1.15)" class="flex-1 bg-white hover:bg-gray-100 text-gray-800 font-bold py-2 rounded shadow-sm border border-gray-300 transition">A+</button>
+                <button onclick="restoreAutoSize()" class="flex-1 bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold py-2 rounded shadow-sm border border-blue-300 transition">Auto</button>
+            </div>
+        </div>
 
         <div class="space-y-4 mb-4 text-sm">
             <div>
@@ -263,7 +252,6 @@
 
     <main class="flex-grow overflow-y-auto block relative" id="main-scroll">
         <div id="print-area">
-            <!-- Initial Empty State -->
             <div class="page-preview flex items-center justify-center bg-transparent shadow-none w-full h-full text-gray-400 font-bold text-2xl text-center" style="grid-template-columns: 1fr; grid-template-rows: 1fr;">
                 <div class="opacity-70">
                     <span class="text-4xl block mb-4">📄</span>
@@ -274,7 +262,6 @@
     </main>
 
     <script>
-        // Data for Standard Paper Sizes (in cm)
         const paperDimensions = {
             carta: { w: 21.59, h: 27.94, print: 'letter' },
             oficio: { w: 21.59, h: 35.56, print: 'legal' },
@@ -282,12 +269,10 @@
             tabloide: { w: 27.94, h: 43.18, print: 'ledger' }
         };
 
-        // Calculates optimal square-ish grid layout based on number of items
         function getOptimalGrid(numItems, orientation) {
             let cols = Math.ceil(Math.sqrt(numItems));
             let rows = Math.ceil(numItems / cols);
 
-            // Adapt orientation visually
             if (orientation === 'landscape' && rows > cols) {
                 [cols, rows] = [rows, cols]; 
             } else if (orientation === 'portrait' && cols > rows) {
@@ -319,18 +304,15 @@
             const printSize = paperDimensions[paperType].print;
             
             stylePrint.innerHTML = `
-                .page-preview {
-                    width: ${widthCm}cm;
-                    height: ${heightCm}cm;
-                }
-                @page { 
-                    size: ${printSize} ${orientation}; 
-                    margin: 0; 
-                }
+                .page-preview { width: ${widthCm}cm; height: ${heightCm}cm; }
+                @page { size: ${printSize} ${orientation}; margin: 0; }
             `;
         }
 
         function fitText(box) {
+            // SI TIENE TAMAÑO MANUAL, IGNORAR AUTO-AJUSTE
+            if (box.dataset.manualSize === "true") return;
+
             const textEl = box.querySelector('.fit-text');
             if (!textEl || !textEl.innerText.trim()) return;
 
@@ -338,17 +320,13 @@
             let max = 800;
             let optimal = min;
 
-            // Reset font size to measure baseline
             textEl.style.fontSize = min + 'px';
-
-            // Safe padding to ensure it doesn't touch the exact borders
             const safePadding = 24; 
 
             while (min <= max) {
                 const mid = Math.floor((min + max) / 2);
                 textEl.style.fontSize = mid + 'px';
 
-                // Measure content vs container
                 const textWidth = textEl.scrollWidth;
                 const textHeight = textEl.scrollHeight;
                 
@@ -357,40 +335,33 @@
 
                 if (textWidth <= containerWidth && textHeight <= containerHeight) {
                     optimal = mid; 
-                    min = mid + 1; // Try bigger
+                    min = mid + 1; 
                 } else {
-                    max = mid - 1; // Try smaller
+                    max = mid - 1; 
                 }
             }
 
             textEl.style.fontSize = optimal + 'px';
         }
 
-        // Map to hold timeouts for debouncing resize events
         const resizeTimeouts = new WeakMap();
 
         const boxObserver = new ResizeObserver(entries => {
             for (let entry of entries) {
                 const box = entry.target;
-                
-                // Clear existing timeout for this specific box
                 if (resizeTimeouts.has(box)) {
                     clearTimeout(resizeTimeouts.get(box));
                 }
-                
-                // Set new timeout (debounce)
                 resizeTimeouts.set(box, setTimeout(() => {
                     fitText(box);
-                }, 50)); // 50ms debounce for smooth dragging
+                }, 50)); 
             }
         });
 
         function setMaxWidth(btn) {
             const box = btn.closest('.valor-box');
             box.classList.toggle('col-span-full');
-            // Remove manual inline widths if they exist
             box.style.width = '';
-            // Trigger refit
             fitText(box);
         }
 
@@ -403,12 +374,47 @@
 
         function resetBoxSize(btn) {
             const box = btn.closest('.valor-box');
-            // Remove full span classes
             box.classList.remove('col-span-full', 'row-span-full');
-            // Remove inline styles set by the native resize handle
             box.style.width = '';
             box.style.height = '';
             fitText(box);
+        }
+
+        function adjustFontSize(factor) {
+            // Buscar seleccionadas, si no hay, tomar todas
+            let targets = document.querySelectorAll('.valor-box.selected');
+            if (targets.length === 0) {
+                targets = document.querySelectorAll('.valor-box');
+            }
+            
+            if (targets.length === 0) return;
+
+            targets.forEach(box => {
+                const textEl = box.querySelector('.fit-text');
+                if (!textEl) return;
+                
+                // Marcar como manual para que el ResizeObserver no lo sobreescriba
+                box.dataset.manualSize = "true"; 
+                
+                // Obtener tamaño actual y calcular el nuevo
+                let currentSize = parseFloat(window.getComputedStyle(textEl).fontSize);
+                let newSize = Math.max(5, currentSize * factor); 
+                textEl.style.fontSize = newSize + 'px';
+            });
+        }
+
+        function restoreAutoSize() {
+            let targets = document.querySelectorAll('.valor-box.selected');
+            if (targets.length === 0) {
+                targets = document.querySelectorAll('.valor-box');
+            }
+            
+            targets.forEach(box => {
+                // Eliminar el flag manual
+                delete box.dataset.manualSize;
+                // Forzar re-cálculo
+                fitText(box); 
+            });
         }
 
         function procesarDatos() {
@@ -434,11 +440,9 @@
             document.documentElement.style.setProperty('--grid-cols', gridSetup.cols);
             document.documentElement.style.setProperty('--grid-rows', gridSetup.rows);
 
-            // Disconnect old observers before creating new ones
             boxObserver.disconnect();
 
             const filas = textarea.split('\n');
-            let generadas = 0;
 
             filas.forEach((fila) => {
                 if (fila.trim() === '') return;
@@ -453,7 +457,13 @@
                     const container = document.createElement('div');
                     container.className = 'valor-box';
                     
-                    // Toolbar HTML inside the box
+                    // Al hacer clic en la caja se selecciona
+                    container.addEventListener('click', function(e) {
+                        // Evitar que seleccione la caja si dimos clic en los botones del toolbar
+                        if (e.target.closest('.hover-toolbar')) return;
+                        this.classList.toggle('selected');
+                    });
+                    
                     const toolbarHTML = `
                         <div class="hover-toolbar">
                             <button class="toolbar-btn" onclick="setMaxWidth(this)" title="Maximizar Ancho">↔️</button>
@@ -469,17 +479,14 @@
                     
                     container.appendChild(span);
                     hoja.appendChild(container);
-
-                    // Observe this box for size changes (manual drag resize or CSS layout shifts)
+                    
                     boxObserver.observe(container);
                 }
 
                 printArea.appendChild(hoja);
-                generadas++;
             });
         }
 
-        // Initialize state
         actualizarEstilos();
     </script>
 </body>
