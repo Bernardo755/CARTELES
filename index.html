@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador de Tarjetas para Recorte</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Estilos base para la previsualización */
+        :root {
+            --font-family: 'Arial', sans-serif;
+            --font-weight: normal;
+        }
+
+        body {
+            background-color: #f3f4f6;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        /* Contenedor de la hoja simulada */
+        .page-preview {
+            background: white;
+            margin: 0 auto;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 10mm; /* Margen interno de la hoja */
+            font-family: var(--font-family);
+            font-weight: var(--font-weight);
+            box-sizing: border-box;
+        }
+
+        /* Tamaños de papel estándar */
+        .page-carta {
+            width: 215.9mm;
+            min-height: 279.4mm;
+        }
+
+        .page-oficio {
+            width: 215.9mm;
+            min-height: 355.6mm;
+        }
+
+        /* Cuadrícula de tarjetas */
+        .grid-cards {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr); /* 2 columnas para aprovechar bien el espacio */
+            gap: 5mm;
+            align-content: start;
+        }
+
+        /* Estilo de cada tarjeta/recuadro */
+        .card {
+            border: 1.5px dashed #4b5563; /* Borde punteado para recortar */
+            padding: 15px;
+            box-sizing: border-box;
+            background-color: #ffffff;
+            page-break-inside: avoid; /* Evita que una tarjeta se corte a la mitad entre hojas */
+            break-inside: avoid;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            height: 100%;
+            min-height: 120px;
+        }
+
+        .card-row {
+            margin-bottom: 6px;
+            line-height: 1.3;
+            font-size: 14px;
+        }
+        
+        .card-row strong {
+            color: #1f2937;
+        }
+        
+        .card-header {
+            font-size: 16px;
+            text-align: center;
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 8px;
+            margin-bottom: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        /* Estilos específicos para la impresión y exportación a PDF */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #print-area, #print-area * {
+                visibility: visible;
+            }
+            #print-area {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                margin: 0;
+                padding: 0;
+                box-shadow: none;
+                background: white;
+            }
+            .page-preview {
+                box-shadow: none;
+                margin: 0;
+                width: 100%;
+                min-height: 100%;
+            }
+            /* Se ocultan fondos decorativos al imprimir */
+            .card {
+                border: 1px dashed #000;
+            }
+        }
+    </style>
+    <!-- Estilo dinámico para el tamaño de página al imprimir -->
+    <style id="dynamic-print-style"></style>
+</head>
+<body class="h-screen flex overflow-hidden">
+
+    <!-- Panel Lateral: Controles -->
+    <aside class="w-1/3 bg-white p-6 shadow-xl z-10 flex flex-col h-full overflow-y-auto border-r border-gray-200">
+        <h1 class="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+            📄 Configurar Documento
+        </h1>
+
+        <!-- Configuraciones Visuales -->
+        <div class="space-y-4 mb-6">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Tamaño de Papel</label>
+                <select id="paper-size" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                    <option value="carta">Carta (8.5" x 11")</option>
+                    <option value="oficio">Oficio (8.5" x 14")</option>
+                </select>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de Letra</label>
+                    <select id="font-family" class="w-full border border-gray-300 rounded-md p-2">
+                        <option value="'Arial', sans-serif">Arial</option>
+                        <option value="'Times New Roman', serif">Times New Roman</option>
+                        <option value="'Courier New', monospace">Courier New</option>
+                        <option value="'Tahoma', sans-serif">Tahoma</option>
+                        <option value="'Verdana', sans-serif">Verdana</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Grosor</label>
+                    <select id="font-weight" class="w-full border border-gray-300 rounded-md p-2">
+                        <option value="normal">Normal</option>
+                        <option value="bold">Negrita</option>
+                        <option value="600">Seminegrita</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Entrada de Datos -->
+        <div class="flex-grow flex flex-col">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+                📋 Pega aquí los datos desde Excel:
+                <br>
+                <span class="text-xs text-gray-500 font-normal">Orden esperado: CCT | Nombre Escuela | Sede | Fecha | Horario</span>
+            </label>
+            <textarea id="excel-data" class="w-full flex-grow border border-gray-300 rounded-md p-3 text-sm font-mono whitespace-pre focus:ring-blue-500 focus:border-blue-500" placeholder="Ejemplo:
+12DPR1234X	Escuela Benito Juárez	Auditorio Municipal	15/10/2026	08:00 AM
+12DPR5678Y	Escuela Lázaro Cárdenas	Salón de Usos Múltiples	15/10/2026	10:00 AM"></textarea>
+        </div>
+
+        <!-- Botones de Acción -->
+        <div class="mt-6 space-y-3">
+            <button onclick="generarTarjetas()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-md transition duration-200">
+                ⚙️ Generar Vista Previa
+            </button>
+            <button onclick="imprimirPDF()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-md transition duration-200">
+                💾 Guardar como PDF / Imprimir
+            </button>
+            <p class="text-xs text-gray-500 text-center mt-2">Al hacer clic en guardar, elige "Guardar como PDF" en la ventana de impresión.</p>
+        </div>
+    </aside>
+
+    <!-- Área Principal: Previsualización -->
+    <main class="w-2/3 bg-gray-200 p-8 overflow-y-auto flex justify-center items-start">
+        <!-- Contenedor que será impreso -->
+        <div id="print-area">
+            <div id="hoja-preview" class="page-preview page-carta">
+                <div id="contenedor-tarjetas" class="grid-cards">
+                    <!-- Las tarjetas generadas aparecerán aquí -->
+                    <div class="text-gray-400 text-center w-full col-span-2 py-20">
+                        Las tarjetas generadas aparecerán aquí. Pega tus datos y presiona "Generar".
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Actualizar variables CSS en tiempo real (Fuente y Grosor)
+        function actualizarEstilosGenerales() {
+            const fontFamily = document.getElementById('font-family').value;
+            const fontWeight = document.getElementById('font-weight').value;
+            const root = document.documentElement;
+            
+            root.style.setProperty('--font-family', fontFamily);
+            root.style.setProperty('--font-weight', fontWeight);
+        }
+
+        // Actualizar tamaño de papel
+        function actualizarTamanoPapel() {
+            const paperSize = document.getElementById('paper-size').value;
+            const hoja = document.getElementById('hoja-preview');
+            const stylePrint = document.getElementById('dynamic-print-style');
+            
+            // Actualizar clases visuales
+            hoja.className = `page-preview page-${paperSize}`;
+
+            // Actualizar regla CSS @page para la impresión nativa
+            if (paperSize === 'carta') {
+                stylePrint.innerHTML = `@page { size: letter; margin: 10mm; }`;
+            } else {
+                stylePrint.innerHTML = `@page { size: legal; margin: 10mm; }`;
+            }
+        }
+
+        // Función principal para procesar los datos de Excel
+        function generarTarjetas() {
+            actualizarEstilosGenerales();
+            actualizarTamanoPapel();
+
+            const textarea = document.getElementById('excel-data').value;
+            const contenedor = document.getElementById('contenedor-tarjetas');
+            
+            // Limpiar contenedor
+            contenedor.innerHTML = '';
+
+            if (!textarea.trim()) {
+                contenedor.innerHTML = '<div class="text-red-500 text-center w-full col-span-2 py-20">No hay datos para procesar. Pega información de Excel primero.</div>';
+                return;
+            }
+
+            // Procesar datos (Excel separa columnas por tabulación \t y filas por salto de línea \n)
+            const filas = textarea.split('\n');
+            let tarjetasGeneradas = 0;
+
+            filas.forEach((fila) => {
+                if (fila.trim() === '') return; // Saltar filas vacías
+
+                const columnas = fila.split('\t');
+                
+                // Extraer datos asegurando que no haya undefined
+                const cct = columnas[0] ? columnas[0].trim() : 'N/A';
+                const nombre = columnas[1] ? columnas[1].trim() : 'N/A';
+                const sede = columnas[2] ? columnas[2].trim() : 'N/A';
+                const fecha = columnas[3] ? columnas[3].trim() : 'N/A';
+                const horario = columnas[4] ? columnas[4].trim() : 'N/A';
+
+                // Crear elemento de tarjeta
+                const tarjeta = document.createElement('div');
+                tarjeta.className = 'card';
+
+                // Plantilla HTML de la tarjeta
+                tarjeta.innerHTML = `
+                    <div class="card-header">
+                        ${nombre}
+                    </div>
+                    <div class="card-row">
+                        <strong>CCT:</strong> <span style="font-family: 'Courier New', monospace;">${cct}</span>
+                    </div>
+                    <div class="card-row">
+                        <strong>Sede:</strong> ${sede}
+                    </div>
+                    <div class="card-row" style="display: flex; justify-content: space-between; border-top: 1px solid #eee; margin-top: 8px; padding-top: 8px;">
+                        <span><strong>Fecha:</strong> ${fecha}</span>
+                        <span><strong>Hora:</strong> ${horario}</span>
+                    </div>
+                `;
+
+                contenedor.appendChild(tarjeta);
+                tarjetasGeneradas++;
+            });
+
+            if (tarjetasGeneradas === 0) {
+                contenedor.innerHTML = '<div class="text-red-500 text-center w-full col-span-2 py-20">Formato no válido. Asegúrate de copiar las celdas desde Excel.</div>';
+            }
+        }
+
+        // Escuchar cambios en los selectores para actualizar en tiempo real (opcional)
+        document.getElementById('paper-size').addEventListener('change', actualizarTamanoPapel);
+        document.getElementById('font-family').addEventListener('change', actualizarEstilosGenerales);
+        document.getElementById('font-weight').addEventListener('change', actualizarEstilosGenerales);
+
+        // Inicializar el estilo de impresión por defecto (Carta)
+        actualizarTamanoPapel();
+
+        // Función para Imprimir/Guardar PDF
+        function imprimirPDF() {
+            // Asegurarnos de que el diseño esté actualizado antes de imprimir
+            generarTarjetas();
+            // Invocar el diálogo nativo del navegador
+            window.print();
+        }
+    </script>
+</body>
+</html>
