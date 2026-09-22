@@ -6,7 +6,7 @@
     <title>Generador de Tarjetas Flashcards</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Librería para generar los códigos QR en <canvas>, 100% en el navegador -->
+    <!-- Librería para generar los códigos QR en <canvas> -->
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1/build/qrcode.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,8 +16,6 @@
         :root {
             --font-family: 'Montserrat', sans-serif;
             --font-weight: 700;
-            --grid-cols: 1;
-            --grid-rows: 1;
         }
 
         body {
@@ -44,21 +42,15 @@
             font-family: var(--font-family);
             font-weight: var(--font-weight);
             padding: 10mm;
-            display: grid;
-            gap: 15px; 
-            grid-template-columns: repeat(var(--grid-cols), 1fr);
-            grid-template-rows: repeat(var(--grid-rows), 1fr);
+            position: relative; /* Clave para posicionamiento libre absoluto */
+            overflow: hidden;
         }
 
         .valor-box {
-            position: relative;
+            position: absolute; /* Permite mover libremente en X/Y */
             border: 3px dashed #9ca3af;
             border-radius: 8px;
             background-color: #ffffff;
-            width: 100%;
-            height: 100%;
-            min-width: 50px;
-            min-height: 50px;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -68,6 +60,7 @@
             padding: 10px;
             transition: border-color 0.2s, box-shadow 0.2s;
             cursor: grab;
+            user-select: none;
         }
 
         .valor-box:active { cursor: grabbing; }
@@ -86,15 +79,10 @@
         }
 
         .valor-box.dragging {
-            opacity: 0.35;
+            opacity: 0.85;
             border-style: solid;
             border-color: #3b82f6;
-        }
-
-        .valor-box.drag-over {
-            border-color: #10b981;
-            border-style: solid;
-            box-shadow: inset 0 0 0 2px #10b981;
+            box-shadow: 0 10px 25px rgba(59, 130, 246, 0.3);
         }
 
         .mapa-box {
@@ -169,9 +157,6 @@
             color: #000;
         }
 
-        .col-span-full { grid-column: 1 / -1 !important; }
-        .row-span-full { grid-row: 1 / -1 !important; }
-
         .hidden-field { display: none !important; }
 
         @media print {
@@ -211,13 +196,13 @@
         <!-- Distribución de hoja -->
         <div class="mb-5 p-3 bg-gray-50 border border-gray-200 rounded-lg shadow-sm">
             <label class="block font-bold text-gray-800 mb-1">📄 Distribución en la hoja</label>
-            <p class="text-xs text-gray-500 mb-3 leading-tight">Elige si cada registro (fila de tus datos) va en su propia hoja, o si quieres ajustar varios registros dentro de la misma hoja.</p>
+            <p class="text-xs text-gray-500 mb-3 leading-tight">Elige si cada registro va en su propia hoja, o si quieres ajustar varios registros en la misma hoja.</p>
             <select id="page-mode" onchange="togglePageMode()" class="w-full border border-gray-300 rounded-md p-2 bg-white focus:border-blue-600 outline-none text-sm mb-2">
                 <option value="1" selected>Un registro por hoja</option>
-                <option value="multi">Varios registros por hoja (ajustar)</option>
+                <option value="multi">Varios registros por hoja</option>
             </select>
             <div id="records-per-page-wrapper" class="hidden-field">
-                <label class="block text-xs font-bold text-gray-600 mb-1">Registros a ajustar por hoja</label>
+                <label class="block text-xs font-bold text-gray-600 mb-1">Registros por hoja</label>
                 <input type="number" id="records-per-page" min="2" max="30" value="2" class="w-full border border-gray-300 rounded-md p-2 bg-white focus:border-blue-600 outline-none font-bold text-center text-sm">
             </div>
         </div>
@@ -228,11 +213,11 @@
                 <input type="checkbox" id="add-map-toggle" onchange="toggleMapFields()" class="w-4 h-4">
                 📍 Agregar dirección + QR
             </label>
-            <p class="text-xs text-gray-500 mb-3 leading-tight">Se agrega una caja extra en cada hoja con la dirección y un código QR que, al escanearlo, abre el link de Maps.</p>
+            <p class="text-xs text-gray-500 mb-3 leading-tight">Agrega una caja extra con dirección y código QR en cada hoja.</p>
             <div id="map-fields-wrapper" class="hidden-field space-y-2">
                 <div>
                     <label class="block text-xs font-bold text-gray-600 mb-1">Dirección a mostrar</label>
-                    <textarea id="map-address" rows="2" class="w-full border border-gray-300 rounded-md p-2 bg-white text-xs focus:border-blue-600 outline-none resize-none" placeholder="Ej. Av. Siempre Viva 123, Col. Centro..."></textarea>
+                    <textarea id="map-address" rows="2" class="w-full border border-gray-300 rounded-md p-2 bg-white text-xs focus:border-blue-600 outline-none resize-none" placeholder="Ej. Av. Siempre Viva 123..."></textarea>
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-gray-600 mb-1">Link de Google Maps</label>
@@ -292,7 +277,7 @@
             <label class="block font-bold text-gray-700 mb-1 text-sm">
                 📋 Pega aquí los datos (Excel TSV):
             </label>
-            <textarea id="excel-data" class="w-full flex-grow border border-gray-300 rounded-md p-3 text-xs font-mono whitespace-pre focus:border-blue-600 outline-none resize-none" placeholder="Pega las filas desde Excel aquí...&#10;Dato1&#9;Dato2&#9;Dato3&#9;Dato4&#10;Valor1&#9;Valor2&#9;Valor3&#9;Valor4"></textarea>
+            <textarea id="excel-data" class="w-full flex-grow border border-gray-300 rounded-md p-3 text-xs font-mono whitespace-pre focus:border-blue-600 outline-none resize-none" placeholder="Pega las filas desde Excel aquí...&#10;Dato1&#9;Dato2&#9;Dato3&#9;Dato4"></textarea>
         </div>
 
         <div class="space-y-3">
@@ -307,7 +292,7 @@
 
     <main class="flex-grow overflow-y-auto block relative" id="main-scroll">
         <div id="print-area">
-            <div class="page-preview flex items-center justify-center bg-transparent shadow-none w-full h-full text-gray-400 font-bold text-2xl text-center" style="grid-template-columns: 1fr; grid-template-rows: 1fr;">
+            <div class="page-preview flex items-center justify-center bg-transparent shadow-none w-full h-full text-gray-400 font-bold text-2xl text-center">
                 <div class="opacity-70">
                     <span class="text-4xl block mb-4">📄</span>
                     Pega tus datos y presiona<br><span class="text-gray-800">"GENERAR TARJETAS"</span>
@@ -324,9 +309,6 @@
             tabloide: { w: 27.94, h: 43.18, print: 'ledger' }
         };
 
-        /* ============================================================
-           TOGGLES DE UI (mostrar/ocultar campos según selección)
-           ============================================================ */
         function togglePageMode() {
             const modo = document.getElementById('page-mode').value;
             document.getElementById('records-per-page-wrapper').classList.toggle('hidden-field', modo !== 'multi');
@@ -411,11 +393,65 @@
             textEl.style.fontSize = optimal + 'px';
         }
 
+        /* ============================================================
+           DETECCIÓN DE COLISIONES Y RESIZING
+           ============================================================ */
         const resizeTimeouts = new WeakMap();
+
+        function checkOverlap(r1, r2) {
+            return !(r1.right <= r2.left ||
+                     r1.left >= r2.right ||
+                     r1.bottom <= r2.top ||
+                     r1.top >= r2.bottom);
+        }
 
         const boxObserver = new ResizeObserver(entries => {
             for (let entry of entries) {
                 const box = entry.target;
+                const page = box.parentElement;
+
+                if (page && !box.classList.contains('dragging')) {
+                    const padding = parseFloat(window.getComputedStyle(page).paddingLeft) || 38;
+                    const boxLeft = box.offsetLeft;
+                    const boxTop = box.offsetTop;
+                    let boxW = box.offsetWidth;
+                    let boxH = box.offsetHeight;
+
+                    // Limite bordes de hoja
+                    if (boxLeft + boxW > page.clientWidth - padding) {
+                        boxW = Math.max(50, page.clientWidth - padding - boxLeft);
+                        box.style.width = boxW + 'px';
+                    }
+                    if (boxTop + boxH > page.clientHeight - padding) {
+                        boxH = Math.max(50, page.clientHeight - padding - boxTop);
+                        box.style.height = boxH + 'px';
+                    }
+
+                    // Impedir traslape al cambiar tamaño manualmente
+                    const otherBoxes = Array.from(page.querySelectorAll('.valor-box')).filter(b => b !== box);
+                    const currentRect = {
+                        left: boxLeft,
+                        top: boxTop,
+                        right: boxLeft + boxW,
+                        bottom: boxTop + boxH
+                    };
+
+                    const collides = otherBoxes.some(b => checkOverlap(currentRect, {
+                        left: b.offsetLeft,
+                        top: b.offsetTop,
+                        right: b.offsetLeft + b.offsetWidth,
+                        bottom: b.offsetTop + b.offsetHeight
+                    }));
+
+                    if (collides) {
+                        if (box.dataset.lastW) box.style.width = box.dataset.lastW + 'px';
+                        if (box.dataset.lastH) box.style.height = box.dataset.lastH + 'px';
+                    } else {
+                        box.dataset.lastW = boxW;
+                        box.dataset.lastH = boxH;
+                    }
+                }
+
                 if (resizeTimeouts.has(box)) {
                     clearTimeout(resizeTimeouts.get(box));
                 }
@@ -425,54 +461,97 @@
             }
         });
 
+        /* Botones del Toolbar */
         function setMaxWidth(btn) {
             const box = btn.closest('.valor-box');
-            box.classList.toggle('col-span-full');
-            box.style.width = '';
+            const page = box.parentElement;
+            if (!page) return;
+
+            const padding = parseFloat(window.getComputedStyle(page).paddingLeft) || 38;
+            const boxTop = box.offsetTop;
+            const boxH = box.offsetHeight;
+
+            const otherBoxes = Array.from(page.querySelectorAll('.valor-box')).filter(b => b !== box);
+            const yOverlapping = otherBoxes.filter(b => {
+                return !(boxTop + boxH <= b.offsetTop || boxTop >= b.offsetTop + b.offsetHeight);
+            });
+
+            let minLeft = padding;
+            let maxRight = page.clientWidth - padding;
+
+            yOverlapping.forEach(b => {
+                const bLeft = b.offsetLeft;
+                const bRight = b.offsetLeft + b.offsetWidth;
+                const currentLeft = box.offsetLeft;
+
+                if (bRight <= currentLeft) minLeft = Math.max(minLeft, bRight);
+                if (bLeft >= currentLeft + box.offsetWidth) maxRight = Math.min(maxRight, bLeft);
+            });
+
+            box.style.left = minLeft + 'px';
+            box.style.width = (maxRight - minLeft) + 'px';
             fitText(box);
         }
 
         function setMaxHeight(btn) {
             const box = btn.closest('.valor-box');
-            box.classList.toggle('row-span-full');
-            box.style.height = '';
+            const page = box.parentElement;
+            if (!page) return;
+
+            const padding = parseFloat(window.getComputedStyle(page).paddingTop) || 38;
+            const boxLeft = box.offsetLeft;
+            const boxW = box.offsetWidth;
+
+            const otherBoxes = Array.from(page.querySelectorAll('.valor-box')).filter(b => b !== box);
+            const xOverlapping = otherBoxes.filter(b => {
+                return !(boxLeft + boxW <= b.offsetLeft || boxLeft >= b.offsetLeft + b.offsetWidth);
+            });
+
+            let minTop = padding;
+            let maxBottom = page.clientHeight - padding;
+
+            xOverlapping.forEach(b => {
+                const bTop = b.offsetTop;
+                const bBottom = b.offsetTop + b.offsetHeight;
+                const currentTop = box.offsetTop;
+
+                if (bBottom <= currentTop) minTop = Math.max(minTop, bBottom);
+                if (bTop >= currentTop + box.offsetHeight) maxBottom = Math.min(maxBottom, bTop);
+            });
+
+            box.style.top = minTop + 'px';
+            box.style.height = (maxBottom - minTop) + 'px';
             fitText(box);
         }
 
         function resetBoxSize(btn) {
             const box = btn.closest('.valor-box');
-            box.classList.remove('col-span-full', 'row-span-full');
-            box.style.width = '';
-            box.style.height = '';
-            fitText(box);
+            if (box.dataset.initLeft !== undefined) {
+                box.style.left = box.dataset.initLeft + 'px';
+                box.style.top = box.dataset.initTop + 'px';
+                box.style.width = box.dataset.initW + 'px';
+                box.style.height = box.dataset.initH + 'px';
+                fitText(box);
+            }
         }
 
         function adjustFontSize(factor) {
             let targets = document.querySelectorAll('.valor-box.selected');
-            if (targets.length === 0) {
-                targets = document.querySelectorAll('.valor-box');
-            }
-            
+            if (targets.length === 0) targets = document.querySelectorAll('.valor-box');
             if (targets.length === 0) return;
 
             targets.forEach(box => {
                 const textEl = box.querySelector('.fit-text');
                 if (!textEl) return;
-                
                 box.dataset.manualSize = "true"; 
-                
                 let currentSize = parseFloat(window.getComputedStyle(textEl).fontSize);
-                let newSize = Math.max(5, currentSize * factor); 
-                textEl.style.fontSize = newSize + 'px';
+                textEl.style.fontSize = Math.max(5, currentSize * factor) + 'px';
             });
         }
 
         function restoreAutoSize() {
             let targets = document.querySelectorAll('.valor-box.selected');
-            if (targets.length === 0) {
-                targets = document.querySelectorAll('.valor-box');
-            }
-            
+            if (targets.length === 0) targets = document.querySelectorAll('.valor-box');
             targets.forEach(box => {
                 delete box.dataset.manualSize;
                 fitText(box); 
@@ -480,9 +559,9 @@
         }
 
         /* ============================================================
-           ARRASTRAR PARA REORDENAR (Pointer Events)
+           ARRASTRE LIBRE CON COLISIÓN / SIN TRASLAPE
            ============================================================ */
-        const UMBRAL_ARRASTRE = 6; 
+        const UMBRAL_ARRASTRE = 4; 
         let arrastre = null; 
 
         function attachDragEvents(box) {
@@ -500,9 +579,10 @@
                     box: box,
                     startX: e.clientX,
                     startY: e.clientY,
+                    startLeft: box.offsetLeft,
+                    startTop: box.offsetTop,
                     moved: false,
-                    pointerId: e.pointerId,
-                    destino: null
+                    pointerId: e.pointerId
                 };
             });
 
@@ -519,17 +599,60 @@
                     box.style.zIndex = '999';
                 }
 
-                box.style.transform = `translate(${dx}px, ${dy}px)`;
+                const page = box.parentElement;
+                if (!page) return;
 
-                box.style.pointerEvents = 'none';
-                const elemBajo = document.elementFromPoint(e.clientX, e.clientY);
-                box.style.pointerEvents = '';
+                const padding = parseFloat(window.getComputedStyle(page).paddingLeft) || 38;
+                const boxW = box.offsetWidth;
+                const boxH = box.offsetHeight;
 
-                const nuevoDestino = elemBajo ? elemBajo.closest('.valor-box') : null;
-                if (nuevoDestino !== arrastre.destino) {
-                    if (arrastre.destino) arrastre.destino.classList.remove('drag-over');
-                    arrastre.destino = (nuevoDestino && nuevoDestino !== box) ? nuevoDestino : null;
-                    if (arrastre.destino) arrastre.destino.classList.add('drag-over');
+                let proposedLeft = arrastre.startLeft + dx;
+                let proposedTop = arrastre.startTop + dy;
+
+                // Límites de la hoja
+                const minLeft = padding;
+                const maxLeft = page.clientWidth - padding - boxW;
+                const minTop = padding;
+                const maxTop = page.clientHeight - padding - boxH;
+
+                proposedLeft = Math.max(minLeft, Math.min(proposedLeft, maxLeft));
+                proposedTop = Math.max(minTop, Math.min(proposedTop, maxTop));
+
+                // Obtener posición de los demás cuadros
+                const otherBoxes = Array.from(page.querySelectorAll('.valor-box')).filter(b => b !== box);
+                const otherRects = otherBoxes.map(b => ({
+                    left: b.offsetLeft,
+                    top: b.offsetTop,
+                    right: b.offsetLeft + b.offsetWidth,
+                    bottom: b.offsetTop + b.offsetHeight
+                }));
+
+                // Probar movimiento en Eje X
+                const currentTop = box.offsetTop;
+                const testRectX = {
+                    left: proposedLeft,
+                    top: currentTop,
+                    right: proposedLeft + boxW,
+                    bottom: currentTop + boxH
+                };
+
+                const colisionX = otherRects.some(r => checkOverlap(testRectX, r));
+                if (!colisionX) {
+                    box.style.left = proposedLeft + 'px';
+                }
+
+                // Probar movimiento en Eje Y
+                const currentLeft = box.offsetLeft;
+                const testRectY = {
+                    left: currentLeft,
+                    top: proposedTop,
+                    right: currentLeft + boxW,
+                    bottom: proposedTop + boxH
+                };
+
+                const colisionY = otherRects.some(r => checkOverlap(testRectY, r));
+                if (!colisionY) {
+                    box.style.top = proposedTop + 'px';
                 }
             });
 
@@ -544,32 +667,12 @@
             });
         }
 
-        function finalizarArrastre(box, cancelado) {
-            const destino = arrastre.destino;
-            const seMovio = arrastre.moved;
-
+        function finalizarArrastre(box) {
             try { box.releasePointerCapture(arrastre.pointerId); } catch (err) { }
             box.classList.remove('dragging');
-            box.style.transform = '';
             box.style.zIndex = '';
-            if (destino) destino.classList.remove('drag-over');
 
-            if (!cancelado && seMovio && destino && destino !== box) {
-                const hojaOrigen = box.closest('.page-preview');
-                const hojaDestino = destino.closest('.page-preview');
-                if (hojaOrigen === hojaDestino) {
-                    const cajas = Array.from(hojaDestino.children);
-                    const indiceOrigen = cajas.indexOf(box);
-                    const indiceDestino = cajas.indexOf(destino);
-                    if (indiceOrigen < indiceDestino) {
-                        hojaDestino.insertBefore(box, destino.nextSibling);
-                    } else {
-                        hojaDestino.insertBefore(box, destino);
-                    }
-                }
-            }
-
-            if (seMovio) {
+            if (arrastre.moved) {
                 box.dataset.justDragged = 'true';
                 setTimeout(() => { delete box.dataset.justDragged; }, 0);
             }
@@ -645,7 +748,7 @@
                 } else {
                     const aviso = document.createElement('span');
                     aviso.style.cssText = 'font-size:10px;color:#ef4444;';
-                    aviso.innerText = '(No se pudo cargar el generador de QR — revisa tu conexión)';
+                    aviso.innerText = '(Error al cargar QR)';
                     wrap.appendChild(aviso);
                 }
             }
@@ -655,7 +758,7 @@
         }
 
         /* ============================================================
-           GENERACIÓN PRINCIPAL
+           GENERACIÓN DE DOCUMENTO Y POSICIONAMIENTO INICIAL
            ============================================================ */
         function procesarDatos() {
             actualizarEstilos();
@@ -689,7 +792,6 @@
                 return;
             }
 
-            // Parsear datos de Excel (TSV)
             const lineas = textarea.trim().split('\n');
             const registros = [];
 
@@ -705,47 +807,74 @@
                 return;
             }
 
-            // Calcular distribución del grid óptimo dependiendo de los registros por hoja
-            const cajasPorRegistro = numValues;
-            const itemsTotalesPorHoja = (registrosPorHoja * cajasPorRegistro) + (addMap ? 1 : 0);
-            const grid = getOptimalGrid(itemsTotalesPorHoja, orientation);
+            // Agrupar cajas por hoja
+            let paginasCajas = [];
+            let cajasActuales = [];
+            let regCountInPage = 0;
 
-            let hojaActual = null;
-            let registrosEnHoja = 0;
-
-            registros.forEach((registro, index) => {
-                if (!hojaActual || registrosEnHoja >= registrosPorHoja) {
-                    // Si la hoja anterior tenía que llevar mapa, se lo agregamos antes de crear la nueva
-                    if (hojaActual && addMap) {
-                        hojaActual.appendChild(crearCajaMapa(mapAddress, mapLink));
-                    }
-
-                    // Crear nueva hoja
-                    hojaActual = document.createElement('div');
-                    hojaActual.className = 'page-preview';
-                    hojaActual.style.setProperty('--grid-cols', grid.cols);
-                    hojaActual.style.setProperty('--grid-rows', grid.rows);
-                    printArea.appendChild(hojaActual);
-                    registrosEnHoja = 0;
+            registros.forEach((registro) => {
+                if (regCountInPage >= registrosPorHoja) {
+                    if (addMap) cajasActuales.push(crearCajaMapa(mapAddress, mapLink));
+                    paginasCajas.push(cajasActuales);
+                    cajasActuales = [];
+                    regCountInPage = 0;
                 }
 
-                // Insertar los valores del registro
-                registro.forEach(val => {
-                    hojaActual.appendChild(crearCaja(val));
-                });
-
-                // Rellenar las celdas vacías si la fila copiada tiene menos valores que numValues
+                registro.forEach(val => cajasActuales.push(crearCaja(val)));
                 for (let i = registro.length; i < numValues; i++) {
-                    hojaActual.appendChild(crearCaja(''));
+                    cajasActuales.push(crearCaja(''));
                 }
-
-                registrosEnHoja++;
+                regCountInPage++;
             });
 
-            // Añadir el mapa a la última hoja si corresponde
-            if (hojaActual && addMap && registrosEnHoja > 0) {
-                hojaActual.appendChild(crearCajaMapa(mapAddress, mapLink));
+            if (cajasActuales.length > 0) {
+                if (addMap) cajasActuales.push(crearCajaMapa(mapAddress, mapLink));
+                paginasCajas.push(cajasActuales);
             }
+
+            // Renderizar páginas e inicializar posiciones absolutas
+            paginasCajas.forEach((cajas) => {
+                const hoja = document.createElement('div');
+                hoja.className = 'page-preview';
+                printArea.appendChild(hoja);
+
+                const itemsCount = cajas.length;
+                const grid = getOptimalGrid(itemsCount, orientation);
+
+                const padding = 38; // ~10mm de margen interno
+                const gap = 15;
+
+                const pageW = hoja.clientWidth || 800;
+                const pageH = hoja.clientHeight || 600;
+
+                const availW = pageW - padding * 2;
+                const availH = pageH - padding * 2;
+
+                const cellW = (availW - (grid.cols - 1) * gap) / grid.cols;
+                const cellH = (availH - (grid.rows - 1) * gap) / grid.rows;
+
+                cajas.forEach((caja, idx) => {
+                    const col = idx % grid.cols;
+                    const row = Math.floor(idx / grid.cols);
+
+                    const left = Math.round(padding + col * (cellW + gap));
+                    const top = Math.round(padding + row * (cellH + gap));
+                    const w = Math.round(cellW);
+                    const h = Math.round(cellH);
+
+                    caja.style.left = left + 'px';
+                    caja.style.top = top + 'px';
+                    caja.style.width = w + 'px';
+                    caja.style.height = h + 'px';
+
+                    caja.dataset.initLeft = left;
+                    caja.dataset.initTop = top;
+                    caja.dataset.initW = w;
+                    caja.dataset.initH = h;
+
+                    hoja.appendChild(caja);
+                });
+            });
         }
     </script>
 </body>
