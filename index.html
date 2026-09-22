@@ -67,7 +67,7 @@
             box-sizing: border-box;
             padding: 10px;
             transition: border-color 0.2s, box-shadow 0.2s;
-            cursor: grab; /* Ahora también se puede arrastrar para reordenar */
+            cursor: grab;
         }
 
         .valor-box:active { cursor: grabbing; }
@@ -78,22 +78,19 @@
             z-index: 10;
         }
 
-        /* Estilo para las cajas seleccionadas manualmente */
         .valor-box.selected {
-            border-color: #f59e0b; /* Naranja/Dorado */
+            border-color: #f59e0b;
             border-style: solid;
             box-shadow: inset 0 0 0 2px #f59e0b, 0 0 10px rgba(245, 158, 11, 0.4);
             z-index: 15;
         }
 
-        /* Caja que se está arrastrando */
         .valor-box.dragging {
             opacity: 0.35;
             border-style: solid;
             border-color: #3b82f6;
         }
 
-        /* Caja sobre la que se pasa mientras se arrastra otra (indica dónde caerá) */
         .valor-box.drag-over {
             border-color: #10b981;
             border-style: solid;
@@ -211,7 +208,7 @@
             </div>
         </div>
 
-        <!-- NUEVO: Distribución de hoja (1 registro por hoja vs. varios por hoja) -->
+        <!-- Distribución de hoja -->
         <div class="mb-5 p-3 bg-gray-50 border border-gray-200 rounded-lg shadow-sm">
             <label class="block font-bold text-gray-800 mb-1">📄 Distribución en la hoja</label>
             <p class="text-xs text-gray-500 mb-3 leading-tight">Elige si cada registro (fila de tus datos) va en su propia hoja, o si quieres ajustar varios registros dentro de la misma hoja.</p>
@@ -225,11 +222,11 @@
             </div>
         </div>
 
-        <!-- NUEVO: Dirección + QR de Google Maps -->
+        <!-- Dirección + QR de Google Maps -->
         <div class="mb-5 p-3 bg-gray-50 border border-gray-200 rounded-lg shadow-sm">
             <label class="flex items-center gap-2 font-bold text-gray-800 mb-1 cursor-pointer">
                 <input type="checkbox" id="add-map-toggle" onchange="toggleMapFields()" class="w-4 h-4">
-                📍 Agregar dirección + QR de Google Maps
+                📍 Agregar dirección + QR
             </label>
             <p class="text-xs text-gray-500 mb-3 leading-tight">Se agrega una caja extra en cada hoja con la dirección y un código QR que, al escanearlo, abre el link de Maps.</p>
             <div id="map-fields-wrapper" class="hidden-field space-y-2">
@@ -381,7 +378,6 @@
         }
 
         function fitText(box) {
-            // SI TIENE TAMAÑO MANUAL, IGNORAR AUTO-AJUSTE
             if (box.dataset.manualSize === "true") return;
 
             const textEl = box.querySelector('.fit-text');
@@ -452,7 +448,6 @@
         }
 
         function adjustFontSize(factor) {
-            // Buscar seleccionadas, si no hay, tomar todas
             let targets = document.querySelectorAll('.valor-box.selected');
             if (targets.length === 0) {
                 targets = document.querySelectorAll('.valor-box');
@@ -464,10 +459,8 @@
                 const textEl = box.querySelector('.fit-text');
                 if (!textEl) return;
                 
-                // Marcar como manual para que el ResizeObserver no lo sobreescriba
                 box.dataset.manualSize = "true"; 
                 
-                // Obtener tamaño actual y calcular el nuevo
                 let currentSize = parseFloat(window.getComputedStyle(textEl).fontSize);
                 let newSize = Math.max(5, currentSize * factor); 
                 textEl.style.fontSize = newSize + 'px';
@@ -481,36 +474,24 @@
             }
             
             targets.forEach(box => {
-                // Eliminar el flag manual
                 delete box.dataset.manualSize;
-                // Forzar re-cálculo
                 fitText(box); 
             });
         }
 
         /* ============================================================
            ARRASTRAR PARA REORDENAR (Pointer Events)
-           -----------------------------------------------------------
-           Se usa la API de Pointer Events (no el Drag&Drop nativo de
-           HTML5) porque funciona igual con mouse, trackpad y dedo
-           (touch en tablets/celulares), y no interfiere con el
-           manejador nativo de resize (resize: both) de la esquina
-           inferior derecha de cada caja.
-           Al soltar sobre otra caja, se intercambian de posición
-           dentro de la MISMA hoja (no se permite mover entre hojas
-           distintas, para no romper la distribución del grid).
            ============================================================ */
-        const UMBRAL_ARRASTRE = 6; // px que hay que mover antes de considerarlo "arrastre" y no un clic
-        let arrastre = null; // { box, startX, startY, moved, pointerId, destino }
+        const UMBRAL_ARRASTRE = 6; 
+        let arrastre = null; 
 
         function attachDragEvents(box) {
-            box.style.touchAction = 'none'; // evita que el navegador haga scroll al arrastrar con el dedo
+            box.style.touchAction = 'none'; 
 
             box.addEventListener('pointerdown', function (e) {
-                if (e.button !== 0 && e.pointerType === 'mouse') return; // solo clic izquierdo con mouse
+                if (e.button !== 0 && e.pointerType === 'mouse') return; 
                 if (e.target.closest('.hover-toolbar')) return;
 
-                // No interferir con el handle nativo de resize (esquina inferior derecha)
                 const rect = box.getBoundingClientRect();
                 const enEsquinaResize = (rect.right - e.clientX < 18) && (rect.bottom - e.clientY < 18);
                 if (enEsquinaResize) return;
@@ -538,10 +519,8 @@
                     box.style.zIndex = '999';
                 }
 
-                // Feedback visual: la caja sigue al cursor/dedo
                 box.style.transform = `translate(${dx}px, ${dy}px)`;
 
-                // Detectar qué caja hay debajo del cursor (ignorando la que se arrastra)
                 box.style.pointerEvents = 'none';
                 const elemBajo = document.elementFromPoint(e.clientX, e.clientY);
                 box.style.pointerEvents = '';
@@ -569,7 +548,7 @@
             const destino = arrastre.destino;
             const seMovio = arrastre.moved;
 
-            try { box.releasePointerCapture(arrastre.pointerId); } catch (err) { /* ignorar */ }
+            try { box.releasePointerCapture(arrastre.pointerId); } catch (err) { }
             box.classList.remove('dragging');
             box.style.transform = '';
             box.style.zIndex = '';
@@ -590,7 +569,6 @@
                 }
             }
 
-            // Si sí hubo arrastre, se evita que el "click" que sigue alterne la selección
             if (seMovio) {
                 box.dataset.justDragged = 'true';
                 setTimeout(() => { delete box.dataset.justDragged; }, 0);
@@ -619,7 +597,7 @@
 
             container.addEventListener('click', function (e) {
                 if (e.target.closest('.hover-toolbar')) return;
-                if (this.dataset.justDragged) return; // evita seleccionar justo después de arrastrar
+                if (this.dataset.justDragged) return; 
                 this.classList.toggle('selected');
             });
 
@@ -634,7 +612,6 @@
             return container;
         }
 
-        // Caja especial: dirección + QR que abre el link de Google Maps
         function crearCajaMapa(direccion, link) {
             const container = document.createElement('div');
             container.className = 'valor-box mapa-box';
@@ -688,7 +665,6 @@
             let numValues = parseInt(document.getElementById('values-per-row').value, 10);
             const orientation = document.getElementById('orientation').value;
 
-            // Distribución: 1 registro por hoja, o varios registros ajustados en una hoja
             const pageMode = document.getElementById('page-mode').value;
             let registrosPorHoja = 1;
             if (pageMode === 'multi') {
@@ -698,7 +674,6 @@
                 document.getElementById('records-per-page').value = registrosPorHoja;
             }
 
-            // Dirección + QR de Google Maps (opcional)
             const addMap = document.getElementById('add-map-toggle').checked;
             const mapAddress = document.getElementById('map-address').value.trim();
             const mapLink = document.getElementById('map-link').value.trim();
@@ -714,55 +689,64 @@
                 return;
             }
 
-            // Grid de la hoja:
-            // - "1 registro por hoja" sin mapa -> acomodo automático (cuadrado) de siempre.
-            // - En cualquier otro caso -> grid literal: columnas = valores por registro,
-            //   filas = registros por hoja (+1 fila extra si se agrega la caja de mapa).
-            let gridCols, gridRows;
-            if (registrosPorHoja === 1 && !addMap) {
-                const gridSetup = getOptimalGrid(numValues, orientation);
-                gridCols = gridSetup.cols;
-                gridRows = gridSetup.rows;
-            } else {
-                gridCols = numValues;
-                gridRows = registrosPorHoja + (addMap ? 1 : 0);
-            }
-            document.documentElement.style.setProperty('--grid-cols', gridCols);
-            document.documentElement.style.setProperty('--grid-rows', gridRows);
+            // Parsear datos de Excel (TSV)
+            const lineas = textarea.trim().split('\n');
+            const registros = [];
 
-            boxObserver.disconnect();
-
-            const filasValidas = textarea.split('\n').filter(f => f.trim() !== '');
-
-            // Agrupar las filas de datos en bloques de "registrosPorHoja"
-            const grupos = [];
-            for (let i = 0; i < filasValidas.length; i += registrosPorHoja) {
-                grupos.push(filasValidas.slice(i, i + registrosPorHoja));
+            for (let linea of lineas) {
+                const columnas = linea.split('\t').map(c => c.trim()).filter(c => c !== '');
+                if (columnas.length > 0) {
+                    registros.push(columnas.slice(0, numValues));
+                }
             }
 
-            grupos.forEach((grupo) => {
-                const hoja = document.createElement('div');
-                hoja.className = 'page-preview';
+            if (registros.length === 0) {
+                printArea.innerHTML = `<div class="p-10 text-red-500 font-bold">No se encontraron datos válidos.</div>`;
+                return;
+            }
 
-                grupo.forEach((fila) => {
-                    const columnas = fila.split('\t');
-                    for (let i = 0; i < numValues; i++) {
-                        const textContent = columnas[i] ? columnas[i].trim() : '';
-                        hoja.appendChild(crearCaja(textContent));
+            // Calcular distribución del grid óptimo dependiendo de los registros por hoja
+            const cajasPorRegistro = numValues;
+            const itemsTotalesPorHoja = (registrosPorHoja * cajasPorRegistro) + (addMap ? 1 : 0);
+            const grid = getOptimalGrid(itemsTotalesPorHoja, orientation);
+
+            let hojaActual = null;
+            let registrosEnHoja = 0;
+
+            registros.forEach((registro, index) => {
+                if (!hojaActual || registrosEnHoja >= registrosPorHoja) {
+                    // Si la hoja anterior tenía que llevar mapa, se lo agregamos antes de crear la nueva
+                    if (hojaActual && addMap) {
+                        hojaActual.appendChild(crearCajaMapa(mapAddress, mapLink));
                     }
-                });
 
-                if (addMap && (mapAddress || mapLink)) {
-                    const cajaMapa = crearCajaMapa(mapAddress, mapLink);
-                    cajaMapa.classList.add('col-span-full');
-                    hoja.appendChild(cajaMapa);
+                    // Crear nueva hoja
+                    hojaActual = document.createElement('div');
+                    hojaActual.className = 'page-preview';
+                    hojaActual.style.setProperty('--grid-cols', grid.cols);
+                    hojaActual.style.setProperty('--grid-rows', grid.rows);
+                    printArea.appendChild(hojaActual);
+                    registrosEnHoja = 0;
                 }
 
-                printArea.appendChild(hoja);
-            });
-        }
+                // Insertar los valores del registro
+                registro.forEach(val => {
+                    hojaActual.appendChild(crearCaja(val));
+                });
 
-        actualizarEstilos();
+                // Rellenar las celdas vacías si la fila copiada tiene menos valores que numValues
+                for (let i = registro.length; i < numValues; i++) {
+                    hojaActual.appendChild(crearCaja(''));
+                }
+
+                registrosEnHoja++;
+            });
+
+            // Añadir el mapa a la última hoja si corresponde
+            if (hojaActual && addMap && registrosEnHoja > 0) {
+                hojaActual.appendChild(crearCajaMapa(mapAddress, mapLink));
+            }
+        }
     </script>
 </body>
 </html>
