@@ -7,7 +7,7 @@
 
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Librería para generar los códigos QR en <canvas>, 100% en el navegador -->
-    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1/build/qrcode.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400..700&family=Lato:wght@300;400;700;900&family=Montserrat:wght@300;400;700;900&family=Oswald:wght@300;400;700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Poppins:wght@300;400;700;900&family=Roboto:wght@300;400;700;900&display=swap" rel="stylesheet">
@@ -489,61 +489,114 @@
         }
 
         /* ============================================================
-           ARRASTRAR PARA REORDENAR (HTML5 Drag & Drop)
+           ARRASTRAR PARA REORDENAR (Pointer Events)
            -----------------------------------------------------------
-           Cada .valor-box es draggable="true". Al soltar una caja sobre
-           otra, se intercambian de posición dentro de la MISMA hoja
-           (no se permite arrastrar entre hojas distintas, para no
-           romper la distribución del grid de cada página).
+           Se usa la API de Pointer Events (no el Drag&Drop nativo de
+           HTML5) porque funciona igual con mouse, trackpad y dedo
+           (touch en tablets/celulares), y no interfiere con el
+           manejador nativo de resize (resize: both) de la esquina
+           inferior derecha de cada caja.
+           Al soltar sobre otra caja, se intercambian de posición
+           dentro de la MISMA hoja (no se permite mover entre hojas
+           distintas, para no romper la distribución del grid).
            ============================================================ */
-        let cajaArrastrada = null;
+        const UMBRAL_ARRASTRE = 6; // px que hay que mover antes de considerarlo "arrastre" y no un clic
+        let arrastre = null; // { box, startX, startY, moved, pointerId, destino }
 
         function attachDragEvents(box) {
-            box.addEventListener('dragstart', function (e) {
-                cajaArrastrada = this;
-                this.classList.add('dragging');
-                e.dataTransfer.effectAllowed = 'move';
-                e.dataTransfer.setData('text/plain', ''); // requerido por algunos navegadores
+            box.style.touchAction = 'none'; // evita que el navegador haga scroll al arrastrar con el dedo
+
+            box.addEventListener('pointerdown', function (e) {
+                if (e.button !== 0 && e.pointerType === 'mouse') return; // solo clic izquierdo con mouse
+                if (e.target.closest('.hover-toolbar')) return;
+
+                // No interferir con el handle nativo de resize (esquina inferior derecha)
+                const rect = box.getBoundingClientRect();
+                const enEsquinaResize = (rect.right - e.clientX < 18) && (rect.bottom - e.clientY < 18);
+                if (enEsquinaResize) return;
+
+                arrastre = {
+                    box: box,
+                    startX: e.clientX,
+                    startY: e.clientY,
+                    moved: false,
+                    pointerId: e.pointerId,
+                    destino: null
+                };
             });
 
-            box.addEventListener('dragend', function () {
-                this.classList.remove('dragging');
-                document.querySelectorAll('.valor-box.drag-over').forEach(b => b.classList.remove('drag-over'));
-                cajaArrastrada = null;
-            });
+            box.addEventListener('pointermove', function (e) {
+                if (!arrastre || arrastre.box !== box) return;
+                const dx = e.clientX - arrastre.startX;
+                const dy = e.clientY - arrastre.startY;
 
-            box.addEventListener('dragover', function (e) {
-                e.preventDefault();
-                if (cajaArrastrada && cajaArrastrada !== this && cajaArrastrada.closest('.page-preview') === this.closest('.page-preview')) {
-                    e.dataTransfer.dropEffect = 'move';
-                    this.classList.add('drag-over');
+                if (!arrastre.moved) {
+                    if (Math.abs(dx) < UMBRAL_ARRASTRE && Math.abs(dy) < UMBRAL_ARRASTRE) return;
+                    arrastre.moved = true;
+                    box.setPointerCapture(arrastre.pointerId);
+                    box.classList.add('dragging');
+                    box.style.zIndex = '999';
+                }
+
+                // Feedback visual: la caja sigue al cursor/dedo
+                box.style.transform = `translate(${dx}px, ${dy}px)`;
+
+                // Detectar qué caja hay debajo del cursor (ignorando la que se arrastra)
+                box.style.pointerEvents = 'none';
+                const elemBajo = document.elementFromPoint(e.clientX, e.clientY);
+                box.style.pointerEvents = '';
+
+                const nuevoDestino = elemBajo ? elemBajo.closest('.valor-box') : null;
+                if (nuevoDestino !== arrastre.destino) {
+                    if (arrastre.destino) arrastre.destino.classList.remove('drag-over');
+                    arrastre.destino = (nuevoDestino && nuevoDestino !== box) ? nuevoDestino : null;
+                    if (arrastre.destino) arrastre.destino.classList.add('drag-over');
                 }
             });
 
-            box.addEventListener('dragleave', function () {
-                this.classList.remove('drag-over');
+            box.addEventListener('pointerup', function (e) {
+                if (!arrastre || arrastre.box !== box) return;
+                finalizarArrastre(box);
             });
 
-            box.addEventListener('drop', function (e) {
-                e.preventDefault();
-                e.stopPropagation();
-                this.classList.remove('drag-over');
-                if (!cajaArrastrada || cajaArrastrada === this) return;
+            box.addEventListener('pointercancel', function () {
+                if (!arrastre || arrastre.box !== box) return;
+                finalizarArrastre(box, true);
+            });
+        }
 
-                const hojaOrigen = cajaArrastrada.closest('.page-preview');
-                const hojaDestino = this.closest('.page-preview');
-                if (hojaOrigen !== hojaDestino) return; // solo se reordena dentro de la misma hoja
+        function finalizarArrastre(box, cancelado) {
+            const destino = arrastre.destino;
+            const seMovio = arrastre.moved;
 
-                const cajas = Array.from(hojaDestino.children);
-                const indiceOrigen = cajas.indexOf(cajaArrastrada);
-                const indiceDestino = cajas.indexOf(this);
+            try { box.releasePointerCapture(arrastre.pointerId); } catch (err) { /* ignorar */ }
+            box.classList.remove('dragging');
+            box.style.transform = '';
+            box.style.zIndex = '';
+            if (destino) destino.classList.remove('drag-over');
 
-                if (indiceOrigen < indiceDestino) {
-                    hojaDestino.insertBefore(cajaArrastrada, this.nextSibling);
-                } else {
-                    hojaDestino.insertBefore(cajaArrastrada, this);
+            if (!cancelado && seMovio && destino && destino !== box) {
+                const hojaOrigen = box.closest('.page-preview');
+                const hojaDestino = destino.closest('.page-preview');
+                if (hojaOrigen === hojaDestino) {
+                    const cajas = Array.from(hojaDestino.children);
+                    const indiceOrigen = cajas.indexOf(box);
+                    const indiceDestino = cajas.indexOf(destino);
+                    if (indiceOrigen < indiceDestino) {
+                        hojaDestino.insertBefore(box, destino.nextSibling);
+                    } else {
+                        hojaDestino.insertBefore(box, destino);
+                    }
                 }
-            });
+            }
+
+            // Si sí hubo arrastre, se evita que el "click" que sigue alterne la selección
+            if (seMovio) {
+                box.dataset.justDragged = 'true';
+                setTimeout(() => { delete box.dataset.justDragged; }, 0);
+            }
+
+            arrastre = null;
         }
 
         /* ============================================================
@@ -551,10 +604,10 @@
            ============================================================ */
         function toolbarHTML() {
             return `
-                <div class="hover-toolbar" draggable="false">
-                    <button class="toolbar-btn" draggable="false" onclick="setMaxWidth(this)" title="Maximizar Ancho">↔️</button>
-                    <button class="toolbar-btn" draggable="false" onclick="setMaxHeight(this)" title="Maximizar Alto">↕️</button>
-                    <button class="toolbar-btn" draggable="false" onclick="resetBoxSize(this)" title="Restablecer Tamaño">🔄</button>
+                <div class="hover-toolbar">
+                    <button class="toolbar-btn" onclick="setMaxWidth(this)" title="Maximizar Ancho">↔️</button>
+                    <button class="toolbar-btn" onclick="setMaxHeight(this)" title="Maximizar Alto">↕️</button>
+                    <button class="toolbar-btn" onclick="resetBoxSize(this)" title="Restablecer Tamaño">🔄</button>
                 </div>
             `;
         }
@@ -562,11 +615,11 @@
         function crearCaja(textContent) {
             const container = document.createElement('div');
             container.className = 'valor-box';
-            container.draggable = true;
             attachDragEvents(container);
 
             container.addEventListener('click', function (e) {
                 if (e.target.closest('.hover-toolbar')) return;
+                if (this.dataset.justDragged) return; // evita seleccionar justo después de arrastrar
                 this.classList.toggle('selected');
             });
 
@@ -585,11 +638,11 @@
         function crearCajaMapa(direccion, link) {
             const container = document.createElement('div');
             container.className = 'valor-box mapa-box';
-            container.draggable = true;
             attachDragEvents(container);
 
             container.addEventListener('click', function (e) {
                 if (e.target.closest('.hover-toolbar')) return;
+                if (this.dataset.justDragged) return;
                 this.classList.toggle('selected');
             });
 
