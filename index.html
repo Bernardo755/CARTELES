@@ -42,12 +42,12 @@
             font-family: var(--font-family);
             font-weight: var(--font-weight);
             padding: 10mm;
-            position: relative; /* Clave para posicionamiento libre absoluto */
+            position: relative;
             overflow: hidden;
         }
 
         .valor-box {
-            position: absolute; /* Permite mover libremente en X/Y */
+            position: absolute;
             border: 3px dashed #9ca3af;
             border-radius: 8px;
             background-color: #ffffff;
@@ -58,7 +58,7 @@
             overflow: hidden;
             box-sizing: border-box;
             padding: 10px;
-            transition: border-color 0.2s, box-shadow 0.2s;
+            transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s ease;
             cursor: grab;
             user-select: none;
         }
@@ -83,6 +83,7 @@
             border-style: solid;
             border-color: #3b82f6;
             box-shadow: 0 10px 25px rgba(59, 130, 246, 0.3);
+            transition: none;
         }
 
         .mapa-box {
@@ -360,9 +361,49 @@
         }
 
         function fitText(box) {
-            if (box.dataset.manualSize === "true") return;
-
             const textEl = box.querySelector('.fit-text');
+            const canvasEl = box.querySelector('.qr-canvas');
+
+            // Ajuste especial para la caja de mapa (Dirección + QR)
+            if (box.classList.contains('mapa-box')) {
+                const containerW = box.clientWidth - 16;
+                const containerH = box.clientHeight - 16;
+
+                // Redimensionar QR dinámicamente según espacio disponible
+                if (canvasEl) {
+                    const availH = (textEl && textEl.innerText.trim()) ? containerH * 0.55 : containerH * 0.85;
+                    const qrSize = Math.max(30, Math.min(containerW, availH));
+                    canvasEl.style.width = qrSize + 'px';
+                    canvasEl.style.height = qrSize + 'px';
+                }
+
+                // Escalado dinámico del texto de la dirección
+                if (textEl && textEl.innerText.trim() && box.dataset.manualSize !== "true") {
+                    let min = 6;
+                    let max = 200;
+                    let optimal = min;
+                    const targetH = canvasEl ? Math.max(15, containerH - canvasEl.offsetHeight - 12) : containerH;
+
+                    textEl.style.fontSize = min + 'px';
+
+                    while (min <= max) {
+                        const mid = Math.floor((min + max) / 2);
+                        textEl.style.fontSize = mid + 'px';
+
+                        if (textEl.scrollWidth <= containerW && textEl.scrollHeight <= targetH) {
+                            optimal = mid;
+                            min = mid + 1;
+                        } else {
+                            max = mid - 1;
+                        }
+                    }
+                    textEl.style.fontSize = optimal + 'px';
+                }
+                return;
+            }
+
+            // Ajuste para cajas de texto estándar
+            if (box.dataset.manualSize === "true") return;
             if (!textEl || !textEl.innerText.trim()) return;
 
             let min = 5;
@@ -524,8 +565,18 @@
             fitText(box);
         }
 
+        function rotateBox(btn) {
+            const box = btn.closest('.valor-box');
+            let currentAngle = parseInt(box.dataset.rotation || '0', 10);
+            currentAngle = (currentAngle + 90) % 360;
+            box.dataset.rotation = currentAngle;
+            box.style.transform = `rotate(${currentAngle}deg)`;
+        }
+
         function resetBoxSize(btn) {
             const box = btn.closest('.valor-box');
+            box.dataset.rotation = 0;
+            box.style.transform = 'rotate(0deg)';
             if (box.dataset.initLeft !== undefined) {
                 box.style.left = box.dataset.initLeft + 'px';
                 box.style.top = box.dataset.initTop + 'px';
@@ -688,6 +739,7 @@
                 <div class="hover-toolbar">
                     <button class="toolbar-btn" onclick="setMaxWidth(this)" title="Maximizar Ancho">↔️</button>
                     <button class="toolbar-btn" onclick="setMaxHeight(this)" title="Maximizar Alto">↕️</button>
+                    <button class="toolbar-btn" onclick="rotateBox(this)" title="Rotar 90°">↻</button>
                     <button class="toolbar-btn" onclick="resetBoxSize(this)" title="Restablecer Tamaño">🔄</button>
                 </div>
             `;
@@ -729,152 +781,129 @@
             container.innerHTML = toolbarHTML();
 
             const wrap = document.createElement('div');
-            wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;pointer-events:none;width:100%;';
+            wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;pointer-events:none;width:100%;height:100%;box-sizing:border-box;padding:4px;';
 
             if (direccion) {
                 const p = document.createElement('p');
-                p.style.cssText = 'margin:0;padding:0;font-size:13px;line-height:1.3;text-align:center;font-weight:600;max-width:95%;';
+                p.className = 'fit-text';
+                p.style.cssText = 'margin:0;padding:0;line-height:1.15;text-align:center;font-weight:600;word-break:break-word;';
                 p.innerText = direccion;
                 wrap.appendChild(p);
             }
 
             if (link) {
                 const canvas = document.createElement('canvas');
+                canvas.className = 'qr-canvas';
+                canvas.style.cssText = 'display:block;margin:0 auto;object-fit:contain;';
                 wrap.appendChild(canvas);
-                if (window.QRCode && typeof QRCode.toCanvas === 'function') {
-                    QRCode.toCanvas(canvas, link, { width: 110, margin: 1 }, function (error) {
-                        if (error) console.error('Error generando QR:', error);
-                    });
-                } else {
-                    const aviso = document.createElement('span');
-                    aviso.style.cssText = 'font-size:10px;color:#ef4444;';
-                    aviso.innerText = '(Error al cargar QR)';
-                    wrap.appendChild(aviso);
-                }
+
+                QRCode.toCanvas(canvas, link, { width: 150, margin: 1 }, function (error) {
+                    if (error) console.error(error);
+                    fitText(container);
+                });
             }
 
             container.appendChild(wrap);
+            boxObserver.observe(container);
+            setTimeout(() => fitText(container), 50);
             return container;
         }
 
-        /* ============================================================
-           GENERACIÓN DE DOCUMENTO Y POSICIONAMIENTO INICIAL
-           ============================================================ */
         function procesarDatos() {
             actualizarEstilos();
-
-            const textarea = document.getElementById('excel-data').value;
             const printArea = document.getElementById('print-area');
-            let numValues = parseInt(document.getElementById('values-per-row').value, 10);
-            const orientation = document.getElementById('orientation').value;
-
-            const pageMode = document.getElementById('page-mode').value;
-            let registrosPorHoja = 1;
-            if (pageMode === 'multi') {
-                registrosPorHoja = parseInt(document.getElementById('records-per-page').value, 10);
-                if (isNaN(registrosPorHoja) || registrosPorHoja < 1) registrosPorHoja = 1;
-                if (registrosPorHoja > 30) registrosPorHoja = 30;
-                document.getElementById('records-per-page').value = registrosPorHoja;
-            }
-
-            const addMap = document.getElementById('add-map-toggle').checked;
-            const mapAddress = document.getElementById('map-address').value.trim();
-            const mapLink = document.getElementById('map-link').value.trim();
-
-            if (isNaN(numValues) || numValues < 1) numValues = 1;
-            if (numValues > 20) numValues = 20;
-            document.getElementById('values-per-row').value = numValues;
-
             printArea.innerHTML = '';
 
-            if (!textarea.trim()) {
-                printArea.innerHTML = `<div class="p-10 text-red-500 font-bold">Por favor pega datos de Excel.</div>`;
+            const rawText = document.getElementById('excel-data').value.trim();
+            if (!rawText) {
+                printArea.innerHTML = `
+                    <div class="page-preview flex items-center justify-center bg-transparent shadow-none w-full h-full text-gray-400 font-bold text-2xl text-center">
+                        <div class="opacity-70">
+                            <span class="text-4xl block mb-4">📄</span>
+                            Pega tus datos y presiona<br><span class="text-gray-800">"GENERAR TARJETAS"</span>
+                        </div>
+                    </div>`;
                 return;
             }
 
-            const lineas = textarea.trim().split('\n');
-            const registros = [];
+            const rows = rawText.split('\n').map(r => r.split('\t'));
+            const valuesPerRow = parseInt(document.getElementById('values-per-row').value) || 4;
+            const addMap = document.getElementById('add-map-toggle').checked;
+            const mapAddress = document.getElementById('map-address').value;
+            const mapLink = document.getElementById('map-link').value;
+            const orientation = document.getElementById('orientation').value;
 
-            for (let linea of lineas) {
-                const columnas = linea.split('\t').map(c => c.trim()).filter(c => c !== '');
-                if (columnas.length > 0) {
-                    registros.push(columnas.slice(0, numValues));
-                }
-            }
+            const modo = document.getElementById('page-mode').value;
+            const recsPerPage = modo === 'multi' ? (parseInt(document.getElementById('records-per-page').value) || 2) : 1;
 
-            if (registros.length === 0) {
-                printArea.innerHTML = `<div class="p-10 text-red-500 font-bold">No se encontraron datos válidos.</div>`;
-                return;
-            }
+            for (let i = 0; i < rows.length; i += recsPerPage) {
+                const pageRows = rows.slice(i, i + recsPerPage);
+                const page = document.createElement('div');
+                page.className = 'page-preview';
 
-            // Agrupar cajas por hoja
-            let paginasCajas = [];
-            let cajasActuales = [];
-            let regCountInPage = 0;
+                let totalBoxesCount = pageRows.length * valuesPerRow + (addMap ? pageRows.length : 0);
+                const grid = getOptimalGrid(totalBoxesCount, orientation);
 
-            registros.forEach((registro) => {
-                if (regCountInPage >= registrosPorHoja) {
-                    if (addMap) cajasActuales.push(crearCajaMapa(mapAddress, mapLink));
-                    paginasCajas.push(cajasActuales);
-                    cajasActuales = [];
-                    regCountInPage = 0;
-                }
+                printArea.appendChild(page);
 
-                registro.forEach(val => cajasActuales.push(crearCaja(val)));
-                for (let i = registro.length; i < numValues; i++) {
-                    cajasActuales.push(crearCaja(''));
-                }
-                regCountInPage++;
-            });
+                const padding = 38;
+                const availW = page.clientWidth - (padding * 2);
+                const availH = page.clientHeight - (padding * 2);
 
-            if (cajasActuales.length > 0) {
-                if (addMap) cajasActuales.push(crearCajaMapa(mapAddress, mapLink));
-                paginasCajas.push(cajasActuales);
-            }
+                const boxW = (availW / grid.cols) - 10;
+                const boxH = (availH / grid.rows) - 10;
 
-            // Renderizar páginas e inicializar posiciones absolutas
-            paginasCajas.forEach((cajas) => {
-                const hoja = document.createElement('div');
-                hoja.className = 'page-preview';
-                printArea.appendChild(hoja);
+                let currentBoxIndex = 0;
 
-                const itemsCount = cajas.length;
-                const grid = getOptimalGrid(itemsCount, orientation);
+                pageRows.forEach(row => {
+                    for (let v = 0; v < valuesPerRow; v++) {
+                        const text = row[v] || '';
+                        const box = crearCaja(text);
 
-                const padding = 38; // ~10mm de margen interno
-                const gap = 15;
+                        const col = currentBoxIndex % grid.cols;
+                        const rIndex = Math.floor(currentBoxIndex / grid.cols);
 
-                const pageW = hoja.clientWidth || 800;
-                const pageH = hoja.clientHeight || 600;
+                        const left = padding + col * (boxW + 10);
+                        const top = padding + rIndex * (boxH + 10);
 
-                const availW = pageW - padding * 2;
-                const availH = pageH - padding * 2;
+                        box.style.left = left + 'px';
+                        box.style.top = top + 'px';
+                        box.style.width = boxW + 'px';
+                        box.style.height = boxH + 'px';
 
-                const cellW = (availW - (grid.cols - 1) * gap) / grid.cols;
-                const cellH = (availH - (grid.rows - 1) * gap) / grid.rows;
+                        box.dataset.initLeft = left;
+                        box.dataset.initTop = top;
+                        box.dataset.initW = boxW;
+                        box.dataset.initH = boxH;
 
-                cajas.forEach((caja, idx) => {
-                    const col = idx % grid.cols;
-                    const row = Math.floor(idx / grid.cols);
+                        page.appendChild(box);
+                        fitText(box);
+                        currentBoxIndex++;
+                    }
 
-                    const left = Math.round(padding + col * (cellW + gap));
-                    const top = Math.round(padding + row * (cellH + gap));
-                    const w = Math.round(cellW);
-                    const h = Math.round(cellH);
+                    if (addMap) {
+                        const mapBox = crearCajaMapa(mapAddress, mapLink);
+                        const col = currentBoxIndex % grid.cols;
+                        const rIndex = Math.floor(currentBoxIndex / grid.cols);
 
-                    caja.style.left = left + 'px';
-                    caja.style.top = top + 'px';
-                    caja.style.width = w + 'px';
-                    caja.style.height = h + 'px';
+                        const left = padding + col * (boxW + 10);
+                        const top = padding + rIndex * (boxH + 10);
 
-                    caja.dataset.initLeft = left;
-                    caja.dataset.initTop = top;
-                    caja.dataset.initW = w;
-                    caja.dataset.initH = h;
+                        mapBox.style.left = left + 'px';
+                        mapBox.style.top = top + 'px';
+                        mapBox.style.width = boxW + 'px';
+                        mapBox.style.height = boxH + 'px';
 
-                    hoja.appendChild(caja);
+                        mapBox.dataset.initLeft = left;
+                        mapBox.dataset.initTop = top;
+                        mapBox.dataset.initW = boxW;
+                        mapBox.dataset.initH = boxH;
+
+                        page.appendChild(mapBox);
+                        currentBoxIndex++;
+                    }
                 });
-            });
+            }
         }
     </script>
 </body>
